@@ -1,0 +1,4685 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>お買い物学習シミュレーター</title>
+  <style>
+    /* ==========================================================================
+       【デザイン設定エリア】ここを変えると、色や背景を自由に変えられます！
+       ========================================================================== */
+    :root {
+      /* ★メインカラー（ボタンやタイトルのオレンジ色） */
+      --primary: #ff7043;
+      --primary-hover: #f4511e;
+
+      /* ★サブカラー（緑色・レジやアクセント） */
+      --secondary: #26a69a;
+      --secondary-hover: #00897b;
+
+      /* ★全体の背景色（クリーム色。skyblue や pink、#e3f2fd などに変えられます） */
+      --bg: #fff8e7;
+
+      /* ★中央のカードの背景色（白） */
+      --card-bg: #ffffff;
+
+      /* ★文字の基本色（濃いグレー） */
+      --text: #37474f;
+
+      /* ★レジのトレーの色（薄いエメラルドグリーン） */
+      --tray-bg: #e0f2f1;
+
+      /* ★角の丸み */
+      --border-radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ルビの専用デザイン：周囲の文字と太さ・高さ・色を自然に一致させる */
+    ruby {
+      ruby-position: over;
+      ruby-align: center;
+      font-weight: inherit; /* ルビの漢字だけが勝手に太字にならないよう、親の太さを継承 */
+    }
+    rt {
+      font-size: 0.58em;
+      font-weight: normal;
+      color: inherit; /* ★親要素の文字色と同じ色（黒は黒、緑は緑）に統一 */
+      line-height: 1;
+      user-select: none;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 820px;
+      background: white;
+      border-radius: var(--border-radius);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      padding: 28px 24px;
+      position: relative;
+      overflow: hidden;
+      min-height: 540px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 共通ヘッダー（ステップ表示など） */
+    .step-badge {
+      display: inline-block;
+      background: #ffe0b2;
+      color: #e65100;
+      padding: 4px 14px;
+      border-radius: 999px;
+      font-size: 0.9rem;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .screen-title {
+      font-size: 1.5rem;
+      color: #d84315;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    /* ボタン共通：inline-blockでボタン内のルビ付き文字が段落ちするのを完全に防止 */
+    .btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 12px 22px;
+      border-radius: 14px;
+      font-size: 1.05rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: inline-block;
+      text-align: center;
+      vertical-align: middle;
+      line-height: 1.35;
+      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+      box-shadow: 0 4px 10px rgba(255, 112, 67, 0.25);
+    }
+    .btn:hover {
+      background: var(--primary-hover);
+      box-shadow: 0 6px 14px rgba(255, 112, 67, 0.35);
+    }
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    /* ボタンの中のルビ文字も親の文字色（白）を継承して統一 */
+    .btn rt,
+    .btn-success rt,
+    .btn-secondary rt {
+      color: inherit;
+    }
+
+    .btn-secondary {
+      background: #78909c;
+      box-shadow: 0 4px 10px rgba(120, 144, 156, 0.25);
+    }
+    .btn-secondary:hover {
+      background: #546e7a;
+    }
+
+    .btn-success {
+      background: #43a047;
+      box-shadow: 0 4px 10px rgba(67, 160, 71, 0.25);
+    }
+    .btn-success:hover {
+      background: #2e7d32;
+    }
+
+    .btn-lg {
+      font-size: 1.25rem;
+      padding: 16px 36px;
+      border-radius: 16px;
+    }
+
+    .btn-sm {
+      padding: 8px 14px;
+      font-size: 0.9rem;
+      border-radius: 10px;
+    }
+
+    /* 各画面の切り替えスタイル */
+    .screen {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      animation: fadeIn 0.25s ease-out;
+    }
+    .screen.active {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ----------------------------------------------------
+       画面1: スタート画面
+    ---------------------------------------------------- */
+    #screenStart {
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 24px;
+      padding: 30px 10px;
+    }
+
+    .game-logo {
+      font-size: 4rem;
+      animation: bounce 2s infinite ease-in-out;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    /* ----------------------------------------------------
+       画面2: お財布の確認画面
+    ---------------------------------------------------- */
+    .wallet-summary-card {
+      background: #fff3e0;
+      border: 3px solid #ffe0b2;
+      border-radius: 16px;
+      padding: 16px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .total-money-text {
+      font-size: 2.2rem;
+      font-weight: bold;
+      color: #e65100;
+      margin: 6px 0;
+    }
+
+    .wallet-coins-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .wallet-coin-cell {
+      background: #fafafa;
+      border: 2px solid #eeeeee;
+      border-radius: 12px;
+      padding: 12px 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* 硬貨・紙幣のCSSビジュアル */
+    .visual-money {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+      user-select: none;
+    }
+
+    .bill-10000 {
+      width: 100px;
+      height: 52px;
+      background: linear-gradient(135deg, #e8d098, #d4b46c);
+      border: 2px solid #b89547;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      color: #4e3810;
+    }
+    .bill-5000 {
+      width: 96px;
+      height: 50px;
+      background: linear-gradient(135deg, #d1b3d8, #b88fbe);
+      border: 2px solid #8e6294;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      color: #3b1e42;
+    }
+    .bill-1000 {
+      width: 90px;
+      height: 48px;
+      background: linear-gradient(135deg, #a8d5e5, #7ebad1);
+      border: 2px solid #4a8d9e;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      color: #1a4252;
+    }
+
+    .coin-500 {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #f9e28f, #e5b842);
+      border: 2px dashed #b88d22;
+      color: #5d4508;
+      font-size: 0.85rem;
+    }
+    .coin-100 {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #f2f2f2, #c8c8c8);
+      border: 2px solid #9e9e9e;
+      color: #424242;
+      font-size: 0.85rem;
+    }
+    .coin-50 {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #f5f5f5, #cfcfcf);
+      border: 2px solid #9e9e9e;
+      color: #424242;
+      position: relative;
+      font-size: 0.75rem;
+    }
+    .coin-50::after, .coin-5::after {
+      content: "";
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: white;
+      border-radius: 50%;
+      border: 1px solid #757575;
+    }
+    .coin-10 {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #e09267, #b86235);
+      border: 2px solid #823812;
+      color: #4e1a02;
+      font-size: 0.85rem;
+    }
+    .coin-5 {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #edd477, #caa230);
+      border: 2px solid #8c6e14;
+      color: #4e3a02;
+      position: relative;
+      font-size: 0.75rem;
+    }
+    .coin-1 {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #ffffff, #dedede);
+      border: 2px solid #b0bec5;
+      color: #546e7a;
+      font-size: 0.8rem;
+    }
+
+    .count-badge {
+      background: #e65100;
+      color: white;
+      font-size: 0.85rem;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-weight: bold;
+    }
+
+    /* ----------------------------------------------------
+       画面3: お店選択画面
+    ---------------------------------------------------- */
+    /* お店選択カード内の画像エリア共通設定 */
+    .shop-choice-card .shop-icon {
+      width: 100%;
+      height: 360px;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+
+    /* スーパーマーケット用の画像 */
+    .shop-icon-supermarket {
+      background-image: url("https://storage.ghost.io/c/42/fc/42fcd807-7c75-44a7-8b26-8deade0bf4c9/content/images/2026/01/copainter_supermarket_25.png");
+    }
+
+    /* コンビニエンスストア用の画像 */
+    .shop-icon-convenience {
+      background-image: url("https://min-chi.material.jp/mc/materials/background-c/convenience_store/convenience_store_1.jpg");
+    }
+
+    /* 売り場画面 (#screenMarket) の基本スタイル */
+    #screenMarket {
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      transition: background-image 0.3s ease;
+      border-radius: var(--border-radius);
+      padding: 12px;
+    }
+
+    /* スーパーマーケット選択時の背景 */
+    #screenMarket.bg-supermarket {
+      background-image: linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5)), 
+                        url("https://aipict.com/wp-content/uploads/supermarket_interior05-1024x724.png");
+    }
+
+    /* コンビニエンスストア選択時の背景 */
+    #screenMarket.bg-convenience {
+      background-image: linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.5)), 
+                        url("https://min-chi.material.jp/wp-content/uploads/in_convenience_store_1.jpg");
+    }
+
+    /* ----------------------------------------------------
+       画面4: 売り場とお買い物画面
+    ---------------------------------------------------- */
+    .market-header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #e8f5e9;
+      border: 2px solid #c8e6c9;
+      border-radius: 14px;
+      padding: 10px 16px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .corner-tabs {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      margin-bottom: 16px;
+    }
+    .corner-tab-btn {
+      background: #eceff1;
+      border: 2px solid transparent;
+      padding: 8px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: bold;
+      color: #546e7a;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .corner-tab-btn rt {
+      color: inherit; /* ★通常時は親文字と同じ #546e7a */
+    }
+    .corner-tab-btn:hover:not(.active) {
+      background: #cfd8dc;
+      color: #37474f;
+    }
+    .corner-tab-btn.active {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 4px 12px rgba(255, 112, 67, 0.35);
+    }
+    .corner-tab-btn.active rt {
+      color: white; /* ★押してアクティブになった時は親文字と同じ白に変わる！ */
+    }
+
+    .items-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+      flex: 1;
+    }
+
+    /* 商品カード全体の設定（高さ制限をなくして自動で伸ばす） */
+    .item-card {
+      background: white;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 10px;
+      text-align: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      height: auto; /* ★高さを自動調整にして見切れを防止 */
+    }
+
+    /* 商品画像のスタイル（枠に収まるように調整） */
+    .item-img {
+      width: 100%;
+      height: 110px;          /* 画像の表示高さ */
+      object-fit: contain;    /* ★画像全体を切らずに枠内にすっぽり収める */
+      border-radius: 8px;
+      margin-bottom: 8px;
+      background-color: #f8f9fa; /* 余白ができた場合の下地カラー */
+    }
+
+    /* カゴバー */
+    .cart-summary-bar {
+      background: #f1f8e9;
+      border: 2px dashed #aed581;
+      border-radius: 14px;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    /* ----------------------------------------------------
+       画面5: お会計画面
+    ---------------------------------------------------- */
+    .register-board {
+      background: #263238;
+      color: white;
+      border-radius: 14px;
+      padding: 14px 20px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      margin-bottom: 16px;
+      text-align: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .reg-val {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #ffeb3b;
+    }
+    .reg-val.pay { color: #69f0ae; }
+    .reg-val.diff { color: #ff80ab; }
+
+    .tray-box {
+      background: var(--tray-bg);
+      border: 3px dashed #80cbc4;
+      border-radius: 14px;
+      padding: 14px;
+      text-align: center;
+      min-height: 100px;
+      margin-bottom: 14px;
+    }
+    .tray-coins-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+    .tray-chip {
+      background: white;
+      border: 2px solid #26a69a;
+      border-radius: 10px;
+      padding: 4px 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .tray-chip:hover {
+      background: #ffebee;
+      border-color: #ef5350;
+    }
+
+    .wallet-interactive-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .interactive-money-card {
+      background: white;
+      border: 2px solid #ffe0b2;
+      border-radius: 12px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+      transition: 0.15s;
+    }
+    .interactive-money-card:hover:not(.empty) {
+      transform: scale(1.04);
+      border-color: var(--primary);
+    }
+    .interactive-money-card.empty {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    /* ----------------------------------------------------
+       画面6: 結果・評価・答え表示画面
+    ---------------------------------------------------- */
+    #screenResult {
+      text-align: center;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding: 16px 6px;
+    }
+    .result-stars {
+      font-size: 2.8rem;
+      color: #fbc02d;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.15);
+      margin: 4px 0;
+    }
+    .result-box {
+      background: #fffde7;
+      border: 2px solid #fff59d;
+      border-radius: 16px;
+      padding: 16px 20px;
+      max-width: 600px;
+      width: 100%;
+      text-align: left;
+      transition: all 0.3s ease;
+    }
+
+    /* 隠しランク（シークレット特別演出） */
+    .secret-box {
+      background: linear-gradient(135deg, #fffde7 0%, #ffe0b2 45%, #fce4ec 100%) !important;
+      border: 3px solid #ffb300 !important;
+      box-shadow: 0 0 25px rgba(255, 179, 0, 0.45), 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+      animation: secretGlow 2.4s infinite alternate ease-in-out;
+    }
+    @keyframes secretGlow {
+      0% { box-shadow: 0 0 15px rgba(255, 179, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.08); }
+      100% { box-shadow: 0 0 32px rgba(255, 87, 34, 0.65), 0 8px 26px rgba(233, 30, 99, 0.25); }
+    }
+    .secret-stars {
+      font-size: 3.2rem !important;
+      filter: drop-shadow(0 0 12px rgba(255, 215, 0, 0.85));
+      animation: secretStarsBounce 1.2s infinite ease-in-out alternate;
+      display: inline-block;
+    }
+    @keyframes secretStarsBounce {
+      0% { transform: scale(1); }
+      100% { transform: scale(1.12) rotate(1.5deg); }
+    }
+    .rainbow-text {
+      background: linear-gradient(90deg, #e91e63, #ff9800, #4caf50, #00bcd4, #7c4dff, #e91e63);
+      background-size: 300% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: rainbowShift 3s linear infinite;
+      font-weight: 900;
+    }
+    @keyframes rainbowShift {
+      0% { background-position: 0% center; }
+      100% { background-position: 300% center; }
+    }
+    .secret-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #ff4081, #7c4dff);
+      color: white;
+      font-size: 0.85rem;
+      font-weight: bold;
+      padding: 4px 14px;
+      border-radius: 999px;
+      box-shadow: 0 2px 8px rgba(124, 77, 255, 0.35);
+      margin-bottom: 8px;
+      animation: secretPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes secretPop {
+      0% { transform: scale(0.4); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* 答え（神払い）表示エリア */
+    .answer-container {
+      max-width: 600px;
+      width: 100%;
+      background: #ffffff;
+      border: 2px solid #ffcc80;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(255, 152, 0, 0.12);
+      padding: 16px;
+      text-align: left;
+    }
+
+    .answer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .answer-title {
+      font-size: 1.15rem;
+      font-weight: bold;
+      color: #e65100;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .answer-content {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px dashed #ffe0b2;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 580px) {
+      .compare-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .compare-card {
+      background: #fafafa;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+    .compare-card.optimal {
+      background: #fff8e1;
+      border-color: #ffd54f;
+    }
+
+    .mini-money-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .mini-money-tag {
+      background: white;
+      border: 1px solid #cfd8dc;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* カゴ中身モーダル */
+    .modal-overlay {
+      position: fixed;
+      top:0; left:0; width:100%; height:100%;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 16px;
+    }
+    .cart-modal {
+      background: white;
+      width: 100%;
+      max-width: 480px;
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    }
+    .cart-list-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px dashed #e0e0e0;
+      gap: 10px;
+    }
+    .cart-item-info {
+      flex: 1;
+      text-align: left;
+    }
+    .cart-item-name {
+      font-size: 1.05rem;
+      font-weight: bold;
+      color: #37474f;
+    }
+    .cart-item-detail {
+      font-size: 0.88rem;
+      color: #78909c;
+      margin-top: 2px;
+    }
+    .cart-item-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .cart-item-subtotal {
+      font-weight: bold;
+      color: #e65100;
+      font-size: 1.15rem;
+      white-space: nowrap;
+      margin-right: 6px;
+    }
+
+    /* 数量指定モーダル共通 */
+    .qty-modal-box {
+      background: white;
+      width: 100%;
+      max-width: 440px;
+      border-radius: 20px;
+      padding: 22px 20px;
+      box-shadow: 0 12px 35px rgba(0,0,0,0.28);
+      text-align: center;
+      animation: secretPop 0.25s ease-out;
+    }
+    .qty-control-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin: 16px 0 12px;
+    }
+    .qty-btn {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      border: 2px solid #ffb74d;
+      background: #fff8e1;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #e65100;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .qty-btn:hover {
+      background: #ffe082;
+      transform: scale(1.06);
+    }
+    .qty-btn:active {
+      transform: scale(0.95);
+    }
+    .qty-input {
+      width: 95px;
+      height: 46px;
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+      border: 2px solid #cfd8dc;
+      border-radius: 12px;
+      color: #37474f;
+      outline: none;
+      background: #fafafa;
+    }
+    .qty-input:focus {
+      border-color: #ff9800;
+      background: #fff;
+    }
+    .qty-quick-row {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .qty-quick-btn {
+      background: #f1f8e9;
+      border: 1.5px solid #a5d6a7;
+      border-radius: 8px;
+      padding: 5px 12px;
+      font-size: 0.88rem;
+      font-weight: bold;
+      color: #2e7d32;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .qty-quick-btn:hover {
+      background: #c8e6c9;
+      transform: translateY(-1px);
+    }
+    .qty-quick-btn:active {
+      transform: scale(0.96);
+    }
+    .qty-price-preview {
+      background: #fff8e1;
+      border: 1.5px solid #ffe082;
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 16px;
+      font-size: 1.1rem;
+      color: #d84315;
+    }
+    .qty-warning {
+      color: #d32f2f;
+      background: #ffebee;
+      border: 1px solid #ffcdd2;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      margin-top: 8px;
+      display: none;
+    }
+
+    /* ----------------------------------------------------
+       エンドレスモード用スタイル
+    ---------------------------------------------------- */
+    .start-highscore-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #fff8e1, #ffecb3);
+      border: 2px solid #ffd54f;
+      border-radius: 999px;
+      padding: 6px 18px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      color: #e65100;
+      box-shadow: 0 4px 12px rgba(255, 179, 0, 0.2);
+      margin-bottom: 16px;
+    }
+    .mode-btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      max-width: 360px;
+      margin: 0 auto;
+    }
+    .btn-endless {
+      background: linear-gradient(135deg, #ff5722, #e91e63);
+      box-shadow: 0 6px 16px rgba(233, 30, 99, 0.35);
+      border: none;
+    }
+    .btn-endless:hover {
+      background: linear-gradient(135deg, #f4511e, #d81b60);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(233, 30, 99, 0.45);
+    }
+
+    /* エンドレスプレイ画面ヘッダー */
+    .endless-header {
+      background: #263238;
+      border-radius: 14px;
+      padding: 12px 16px;
+      color: white;
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .endless-stats-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .endless-timer-box {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #ffeb3b;
+    }
+    .endless-timer-box.danger {
+      color: #ff5252;
+      animation: timerAlert 0.6s infinite alternate;
+    }
+    @keyframes timerAlert {
+      0% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(1.1); opacity: 0.75; }
+    }
+    .endless-time-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .endless-time-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4caf50, #ffeb3b);
+      width: 100%;
+      transition: width 0.25s linear, background 0.3s;
+    }
+    .endless-time-bar-fill.danger {
+      background: linear-gradient(90deg, #ff9800, #f44336);
+    }
+    .endless-score-display {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #69f0ae;
+    }
+    .endless-combo-badge {
+      display: inline-block;
+      background: #e91e63;
+      color: white;
+      font-size: 0.85rem;
+      font-weight: bold;
+      padding: 2px 8px;
+      border-radius: 999px;
+      animation: secretPop 0.4s ease-out;
+    }
+
+    /* 評価ポップアップ（画面中央で気持ちよく表示） */
+    .endless-eval-popup {
+      position: absolute;
+      top: 45%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.6);
+      background: rgba(38, 50, 56, 0.96);
+      border: 3px solid #ffb300;
+      color: white;
+      padding: 16px 26px;
+      border-radius: 20px;
+      text-align: center;
+      z-index: 100;
+      box-shadow: 0 10px 35px rgba(0,0,0,0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.22s;
+    }
+    .endless-eval-popup.show {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+    }
+
+    /* エンドレス結果画面 */
+    .endless-result-score {
+      font-size: 3.2rem;
+      font-weight: bold;
+      color: #e65100;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin: 8px 0;
+    }
+    .new-record-banner {
+      display: inline-block;
+      background: linear-gradient(135deg, #ff4081, #7c4dff);
+      color: white;
+      font-size: 1.1rem;
+      font-weight: 900;
+      padding: 6px 20px;
+      border-radius: 999px;
+      box-shadow: 0 4px 14px rgba(124, 77, 255, 0.4);
+      animation: secretPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) infinite alternate;
+      margin-bottom: 12px;
+    }
+    .endless-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      max-width: 550px;
+      width: 100%;
+      margin: 14px auto;
+    }
+    .endless-stat-card {
+      background: #fafafa;
+      border: 1px solid #cfd8dc;
+      border-radius: 12px;
+      padding: 10px;
+      text-align: center;
+    }
+    .endless-stat-num {
+      font-size: 1.35rem;
+      font-weight: bold;
+      color: #37474f;
+      margin-top: 4px;
+    }
+
+    /* 称号一覧バー */
+    .title-list-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      max-width: 660px;
+      margin: 14px auto 0;
+      padding: 11px 20px;
+      background: linear-gradient(135deg, #fff8e1, #ffecb3);
+      border: 2px solid #ffd54f;
+      border-radius: 14px;
+      font-size: 1rem;
+      font-weight: bold;
+      color: #e65100;
+      cursor: pointer;
+      box-shadow: 0 3px 10px rgba(255, 179, 0, 0.18);
+      transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+    }
+    .title-list-bar:hover {
+      background: linear-gradient(135deg, #ffecb3, #ffe082);
+      box-shadow: 0 5px 14px rgba(255, 179, 0, 0.3);
+    }
+    .title-list-bar:active {
+      transform: scale(0.98);
+    }
+
+    /* モード選択カード（かんたん・通常・エンドレスの3カード構成） */
+    .mode-selection-container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      width: 100%;
+      max-width: 760px;
+      margin: 8px auto 0;
+    }
+    @media (max-width: 700px) {
+      .mode-selection-container {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+    }
+    .mode-card {
+      background: #ffffff;
+      border: 3px solid #cfd8dc;
+      border-radius: 20px;
+      padding: 18px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+    }
+    .mode-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+    }
+    .mode-card.easy-mode {
+      background: linear-gradient(180deg, #ffffff 0%, #f1f8e9 100%);
+      border-color: #a5d6a7;
+    }
+    .mode-card.easy-mode:hover {
+      border-color: #4caf50;
+      box-shadow: 0 10px 24px rgba(76, 175, 80, 0.22);
+    }
+    .mode-card.normal-mode {
+      background: linear-gradient(180deg, #ffffff 0%, #fff8e1 100%);
+      border-color: #ffe082;
+    }
+    .mode-card.normal-mode:hover {
+      border-color: var(--primary);
+      box-shadow: 0 10px 24px rgba(255, 112, 67, 0.22);
+    }
+    .mode-card.endless-mode {
+      background: linear-gradient(180deg, #ffffff 0%, #fff3e0 100%);
+      border-color: #ffb74d;
+    }
+    .mode-card.endless-mode:hover {
+      border-color: #ff5722;
+      box-shadow: 0 10px 24px rgba(255, 87, 34, 0.22);
+    }
+    .btn-easy {
+      background: linear-gradient(135deg, #4caf50, #2e7d32);
+      box-shadow: 0 4px 12px rgba(46, 125, 50, 0.25);
+      border: none;
+    }
+    .btn-easy:hover {
+      background: linear-gradient(135deg, #43a047, #1b5e20);
+    }
+    .play-mode-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.82rem;
+      font-weight: bold;
+      padding: 3px 10px;
+      border-radius: 999px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .play-mode-pill.easy {
+      background: #e8f5e9;
+      color: #2e7d32;
+      border: 1.5px solid #a5d6a7;
+    }
+    .play-mode-pill.normal {
+      background: #fff3e0;
+      color: #e65100;
+      border: 1.5px solid #ffcc80;
+    }
+    .mode-card-badge {
+      position: absolute;
+      top: -11px;
+      right: 14px;
+      background: #e91e63;
+      color: white;
+      font-size: 0.75rem;
+      font-weight: bold;
+      padding: 2px 10px;
+      border-radius: 999px;
+      box-shadow: 0 2px 6px rgba(233, 30, 99, 0.4);
+    }
+    .mode-card-icon {
+      font-size: 3.4rem;
+      margin-bottom: 6px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+    }
+    .mode-card-title {
+      font-size: 1.25rem;
+      font-weight: bold;
+      color: #263238;
+      margin-bottom: 6px;
+    }
+    .mode-card-desc {
+      font-size: 0.9rem;
+      color: #607d8b;
+      line-height: 1.5;
+      margin-bottom: 16px;
+      flex-grow: 1;
+    }
+    .mode-card-record {
+      display: inline-block;
+      margin-top: 6px;
+      background: #ffe0b2;
+      color: #e65100;
+      font-weight: bold;
+      padding: 3px 10px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+    .btn-mode {
+      width: 100%;
+      padding: 10px 14px;
+      font-size: 1.05rem;
+    }
+
+    /* 称号一覧カードスタイル */
+    .title-item-card {
+      background: #f5f5f5;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: all 0.2s;
+    }
+    .title-item-card.unlocked {
+      background: #fffde7;
+      border-color: #ffd54f;
+      box-shadow: 0 2px 8px rgba(255, 193, 7, 0.15);
+    }
+    .title-item-card.locked {
+      opacity: 0.65;
+      filter: grayscale(0.6);
+    }
+    .title-item-icon {
+      font-size: 2rem;
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: white;
+      border-radius: 50%;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      flex-shrink: 0;
+    }
+    .title-item-info {
+      flex: 1;
+      text-align: left;
+    }
+    .title-item-name {
+      font-weight: bold;
+      font-size: 1.05rem;
+      color: #37474f;
+    }
+    .title-item-card.unlocked .title-item-name {
+      color: #e65100;
+    }
+    .title-item-desc {
+      font-size: 0.82rem;
+      color: #78909c;
+      margin-top: 2px;
+    }
+    .title-item-status {
+      font-size: 0.8rem;
+      font-weight: bold;
+      padding: 3px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .title-item-status.unlocked {
+      background: #c8e6c9;
+      color: #2e7d32;
+    }
+    .title-item-status.locked {
+      background: #eceff1;
+      color: #607d8b;
+      border: 1px solid #cfd8dc;
+    }
+    .title-item-card.locked {
+      background: #fafafa;
+      border: 2px dashed #b0bec5;
+      opacity: 0.9;
+    }
+    .title-item-name.locked-name {
+      color: #78909c !important;
+      letter-spacing: 2px;
+      font-weight: bold;
+    }
+    .title-item-icon.locked-q {
+      background: #eceff1;
+      color: #90a4ae;
+      font-size: 1.6rem;
+    }
+    .title-item-cond {
+      font-size: 0.8rem;
+      color: #78909c;
+      margin-top: 3px;
+    }
+    .title-item-cond-highlight {
+      font-size: 0.88rem;
+      color: #d84315;
+      margin: 3px 0;
+      font-weight: 500;
+    }
+
+    /* 称号獲得トースト通知 */
+    .title-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: linear-gradient(135deg, #263238 0%, #37474f 100%);
+      border: 2px solid #ffd54f;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 999px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+      font-weight: bold;
+      font-size: 1rem;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s;
+    }
+    .title-toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* ホーム画面（モード選択画面）の右上に配置される円形の称号GUIボタン */
+    .circle-title-btn {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #fffde7 0%, #fff8e1 35%, #ffe082 70%, #ffb300 100%);
+      border: 3.5px solid #ff8f00;
+      box-shadow: 0 4px 18px rgba(255, 143, 0, 0.45), 0 2px 6px rgba(0,0,0,0.18), inset 0 2px 5px rgba(255, 255, 255, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 20;
+      user-select: none;
+      transition: transform 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.22s;
+    }
+    .circle-title-btn:hover {
+      transform: scale(1.1) rotate(5deg);
+      box-shadow: 0 8px 24px rgba(255, 143, 0, 0.65), 0 4px 10px rgba(0,0,0,0.25), inset 0 2px 6px rgba(255, 255, 255, 1);
+    }
+    .circle-title-btn:active {
+      transform: scale(0.94);
+    }
+    .circle-title-icon {
+      font-size: 1.9rem;
+      line-height: 1;
+      margin-top: -2px;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+    }
+    .circle-title-label {
+      font-size: 0.68rem;
+      font-weight: 900;
+      color: #b26a00;
+      line-height: 1;
+      margin-top: 2px;
+      letter-spacing: 0.5px;
+    }
+
+    /* ----------------------------------------------------
+       LOVOT サポーター用スタイル
+    ---------------------------------------------------- */
+    /* 常駐LOVOTウィジェット（画面右下） */
+    .lovot-companion {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      z-index: 900;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      pointer-events: none; /* 吹き出しや画像以外はクリック透過 */
+    }
+    .lovot-avatar-wrap {
+      pointer-events: auto;
+      cursor: pointer;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .lovot-avatar-wrap:hover {
+      transform: scale(1.08);
+    }
+    .lovot-avatar-wrap:active {
+      transform: scale(0.92);
+    }
+    .lovot-avatar-img {
+      width: 78px;
+      height: 98px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 10px rgba(0,0,0,0.22));
+      animation: lovotBreathe 3s ease-in-out infinite alternate;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+    @keyframes lovotBreathe {
+      0% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-4px) scale(1.015); }
+      100% { transform: translateY(0) scale(1); }
+    }
+    .lovot-avatar-wrap.bouncing .lovot-avatar-img {
+      animation: lovotBounce 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+    }
+    @keyframes lovotBounce {
+      0% { transform: scale(1) translateY(0); }
+      30% { transform: scale(1.18, 0.85) translateY(4px); }
+      60% { transform: scale(0.9, 1.15) translateY(-14px); }
+      100% { transform: scale(1) translateY(0); }
+    }
+    .lovot-name-tag {
+      background: linear-gradient(135deg, #ff8a65, #ff7043);
+      color: white;
+      font-size: 0.72rem;
+      font-weight: 900;
+      padding: 2px 10px;
+      border-radius: 999px;
+      box-shadow: 0 2px 6px rgba(255, 112, 67, 0.35);
+      margin-top: -6px;
+      border: 1.5px solid white;
+    }
+
+    /* LOVOTの吹き出し */
+    .lovot-speech-bubble {
+      pointer-events: auto;
+      max-width: 240px;
+      background: white;
+      border: 2px solid #ffb74d;
+      border-radius: 16px;
+      padding: 10px 14px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+      font-size: 0.9rem;
+      color: #37474f;
+      line-height: 1.45;
+      margin-bottom: 8px;
+      position: relative;
+      opacity: 0;
+      transform: translateY(10px) scale(0.92);
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .lovot-speech-bubble.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+    .lovot-speech-bubble::after {
+      content: "";
+      position: absolute;
+      bottom: -9px;
+      right: 28px;
+      border-width: 9px 8px 0;
+      border-style: solid;
+      border-color: white transparent;
+      display: block;
+      width: 0;
+    }
+    .lovot-speech-bubble::before {
+      content: "";
+      position: absolute;
+      bottom: -12px;
+      right: 27px;
+      border-width: 11px 9px 0;
+      border-style: solid;
+      border-color: #ffb74d transparent;
+      display: block;
+      width: 0;
+    }
+
+    /* レジでのLOVOTヒントボタン */
+    .btn-lovot-hint {
+      background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+      border: 2px solid #ffa726;
+      color: #e65100;
+      font-weight: bold;
+      border-radius: 12px;
+      padding: 8px 14px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 2px 8px rgba(255, 167, 38, 0.25);
+      transition: all 0.15s ease;
+    }
+    .btn-lovot-hint:hover {
+      background: linear-gradient(135deg, #ffe0b2, #ffcc80);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(255, 167, 38, 0.35);
+    }
+    .btn-lovot-hint:active {
+      transform: scale(0.96);
+    }
+
+    /* レジでのヒント吹き出しボックス */
+    .lovot-hint-banner {
+      display: none;
+      background: linear-gradient(135deg, #fff8e1 0%, #ffffff 100%);
+      border: 2px solid #ffd54f;
+      border-radius: 14px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 4px 14px rgba(255, 193, 7, 0.18);
+      animation: secretPop 0.3s ease-out;
+    }
+    .lovot-hint-banner.show {
+      display: flex;
+    }
+    .lovot-hint-img {
+      width: 60px;
+      height: 75px;
+      object-fit: contain;
+      flex-shrink: 0;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.15));
+    }
+
+    /* 結果画面のLOVOTリアクションカード */
+    .lovot-result-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: linear-gradient(135deg, #fffde7 0%, #fff8e1 100%);
+      border: 2px solid #ffe082;
+      border-radius: 16px;
+      padding: 12px 18px;
+      margin: 10px 0;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 4px 14px rgba(255, 179, 0, 0.15);
+    }
+    .lovot-result-img {
+      width: 80px;
+      height: 100px;
+      object-fit: contain;
+      flex-shrink: 0;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+      animation: lovotBounce 0.6s ease-out;
+    }
+    .lovot-result-text {
+      flex: 1;
+      text-align: left;
+    }
+    .lovot-result-title {
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: #e65100;
+      margin-bottom: 3px;
+    }
+    .lovot-result-msg {
+      font-size: 1.05rem;
+      color: #37474f;
+      line-height: 1.5;
+      font-weight: bold;
+    }
+
+    /* 答え解説エリアの博士ここあバナー */
+    .teacher-cocoa-banner {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: linear-gradient(135deg, #e8f5e9 0%, #ffffff 100%);
+      border: 2px solid #81c784;
+      border-radius: 16px;
+      padding: 12px 18px;
+      margin-bottom: 14px;
+      box-shadow: 0 4px 12px rgba(76, 175, 80, 0.15);
+    }
+    .teacher-cocoa-img {
+      width: 75px;
+      height: 95px;
+      object-fit: contain;
+      flex-shrink: 0;
+      filter: drop-shadow(0 3px 6px rgba(0,0,0,0.15));
+      animation: lovotBounce 0.5s ease-out;
+    }
+    .teacher-cocoa-speech {
+      flex: 1;
+      text-align: left;
+    }
+    .teacher-cocoa-title {
+      font-size: 0.95rem;
+      font-weight: 900;
+      color: #2e7d32;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .teacher-cocoa-text {
+      font-size: 0.95rem;
+      color: #37474f;
+      line-height: 1.5;
+      font-weight: bold;
+    }
+
+    @media (max-width: 600px) {
+      .lovot-avatar-img {
+        width: 62px;
+        height: 78px;
+      }
+      .lovot-speech-bubble {
+        max-width: 190px;
+        font-size: 0.82rem;
+      }
+      .lovot-result-card {
+        padding: 10px 12px;
+      }
+      .lovot-result-img {
+        width: 65px;
+        height: 82px;
+      }
+      .teacher-cocoa-img {
+        width: 60px;
+        height: 76px;
+      }
+      .teacher-cocoa-text {
+        font-size: 0.85rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+
+  <!-- ==========================================
+       画面1: スタート画面（ホーム・モード選択画面）
+  ========================================== -->
+  <section id="screenStart" class="screen active" style="position:relative;">
+    <!-- ホーム画面（モード選択画面）の右上に配置された円形の称号GUIボタン -->
+    <div class="circle-title-btn" id="circleTitleBtn" onclick="openTitleModal()" title="タップして称号一覧を開く！">
+      <div class="circle-title-icon" id="titleBadgeIcon">🔰</div>
+      <div class="circle-title-label"><ruby>称号<rt>しょうごう</rt></ruby></div>
+    </div>
+
+    <div class="game-logo" style="margin-top:8px;">👛🛒✨</div>
+    <h1 style="font-size:1.8rem; color:#d84315;">
+      お<ruby>買<rt>か</rt></ruby>い<ruby>物<rt>もの</rt></ruby>
+      <ruby>学習<rt>がくしゅう</rt></ruby>シミュレーター
+    </h1>
+    <p style="color:#546e7a; font-size:1.05rem; line-height:1.6; margin-bottom:4px;">
+      <ruby>好<rt>す</rt></ruby>きなお<ruby>店<rt>みせ</rt></ruby>に<ruby>行<rt>い</rt></ruby>ってお<ruby>買<rt>か</rt></ruby>い<ruby>物<rt>もの</rt></ruby>！<br>
+      お<ruby>財布<rt>さいふ</rt></ruby>のお<ruby>金<rt>かね</rt></ruby>を<ruby>出<rt>だ</rt></ruby>して、スッキリした<ruby>支払<rt>しはら</rt></ruby>い<ruby>方<rt>かた</rt></ruby>にチャレンジしよう！
+    </p>
+
+    <!-- 3つのモード選択カード（かんたん・つうじょう・エンドレス） -->
+    <div class="mode-selection-container">
+      <!-- かんたんモードカード -->
+      <div class="mode-card easy-mode" onclick="startNewWalletAndGo('easy')">
+        <div class="mode-card-icon">🔰</div>
+        <div class="mode-card-title">かんたんモード</div>
+        <div class="mode-card-desc">
+          ぴったり<ruby>払<rt>はら</rt></ruby>えればOK！<br>
+          お<ruby>釣<rt>つ</rt></ruby>り1<ruby>枚<rt>まい</rt></ruby>もOK！<br>
+          <span style="color:#2e7d32; font-weight:bold;">はじめての<ruby>練習<rt>れんしゅう</rt></ruby>にぴったり</span>
+        </div>
+        <button class="btn btn-easy btn-mode">
+          🔰 お<ruby>買<rt>か</rt></ruby>い<ruby>物<rt>もの</rt></ruby>へ！
+        </button>
+      </div>
+
+      <!-- 通常モードカード -->
+      <div class="mode-card normal-mode" onclick="startNewWalletAndGo('normal')">
+        <div class="mode-card-icon">🛒</div>
+        <div class="mode-card-title">つうじょうモード</div>
+        <div class="mode-card-desc">
+          ぴったり＆<ruby>小銭<rt>こぜに</rt></ruby>を<br><ruby>一番<rt>いちばん</rt></ruby><ruby>減<rt>へ</rt></ruby>らす<ruby>神払<rt>かみばら</rt></ruby>い！<br>
+          <span style="color:#e65100; font-weight:bold;"><ruby>本格的<rt>ほんかくてき</rt>なお<ruby>会計<rt>かいけい</rt></ruby>に<ruby>挑戦<rt>ちょうせん</rt></ruby></span>
+        </div>
+        <button class="btn btn-mode">
+          🛒 お<ruby>買<rt>か</rt></ruby>い<ruby>物<rt>もの</rt></ruby>へ！
+        </button>
+      </div>
+
+      <!-- エンドレスモードカード -->
+      <div class="mode-card endless-mode" onclick="startEndlessMode()">
+        <div class="mode-card-badge">HOT!</div>
+        <div class="mode-card-icon">🔥</div>
+        <div class="mode-card-title">エンドレスモード</div>
+        <div class="mode-card-desc">
+          <ruby>制限時間<rt>せいげんじかん</rt></ruby>60<ruby>秒<rt>びょう</rt></ruby>！<br>
+          <ruby>素早<rt>すばや</rt></ruby>くスッキリ<ruby>支払<rt>しはら</rt></ruby>うタイムアタック！<br>
+          <span class="mode-card-record">🏆 <ruby>最高<rt>さいこう</rt></ruby>: <span id="startHighScoreVal">0</span><ruby>点<rt>てん</rt></ruby></span>
+        </div>
+        <button class="btn btn-endless btn-mode">
+          🔥 60<ruby>秒<rt>びょう</rt></ruby>アタック！
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================
+       画面2: お財布の確認画面（ステップ0）
+  ========================================== -->
+  <section id="screenWallet" class="screen">
+    <div style="text-align:center;">
+      <span class="step-badge">ステップ 0</span>
+      <h2 class="screen-title">
+        【お<ruby>財布<rt>さいふ</rt></ruby>の<ruby>確認<rt>かくにん</rt></ruby>】
+      </h2>
+    </div>
+
+    <div class="wallet-summary-card">
+      <div style="font-size:1.05rem; color:#6d4c41;">
+        <ruby>現在<rt>げんざい</rt></ruby>の<ruby>所持金<rt>しょじきん</rt></ruby>
+      </div>
+      <div class="total-money-text">
+        <span id="initTotalMoney">0</span><ruby>円<rt>えん</rt></ruby>
+      </div>
+      <div style="font-size:0.95rem; color:#8d6e63;">
+        お<ruby>財布<rt>さいふ</rt></ruby>に<ruby>入<rt>はい</rt></ruby>っているお<ruby>金<rt>かね</rt></ruby>の<ruby>内訳<rt>うちわけ</rt></ruby>を<ruby>見<rt>み</rt></ruby>てみよう！
+      </div>
+    </div>
+
+    <!-- お金の内訳グリッド -->
+    <div class="wallet-coins-grid" id="initWalletGrid"></div>
+
+    <div style="text-align:center; margin-top:auto;">
+      <button class="btn btn-lg" onclick="goToShopSelect()">
+        🏬 お<ruby>店<rt>みせ</rt></ruby>に<ruby>行<rt>い</rt></ruby>く！
+      </button>
+    </div>
+  </section>
+
+  <!-- ==========================================
+       画面3: お店選択画面（ステップ1）
+  ========================================== -->
+  <section id="screenShopSelect" class="screen">
+    <div style="text-align:center;">
+      <span class="step-badge">ステップ 1</span>
+      <h2 class="screen-title">
+        どのお<ruby>店<rt>みせ</rt></ruby>に<ruby>行<rt>い</rt></ruby>きますか？
+      </h2>
+      <p style="color:#607d8b;"><ruby>行<rt>い</rt></ruby>きたいお<ruby>店<rt>みせ</rt></ruby>をえらんでね！</p>
+    </div>
+
+    <div class="shop-selection-grid">
+      <!-- スーパー -->
+      <div class="shop-choice-card" onclick="chooseShop('スーパーマーケット')">
+        <div class="shop-icon shop-icon-supermarket"></div>
+        <h3>スーパーマーケット</h3>
+        <p style="font-size:0.9rem; color:#78909c;">
+          <ruby>野菜<rt>やさい</rt></ruby>・お<ruby>肉<rt>にく</rt></ruby>・お<ruby>菓子<rt>かし</rt></ruby>・お<ruby>惣菜<rt>そうざい</rt></ruby>など、<ruby>食材<rt>しょくざい</rt></ruby>がいっぱいの<ruby>大<rt>おお</rt></ruby>きなお<ruby>店<rt>みせ</rt></ruby>！
+        </p>
+        <button class="btn btn-sm">ここに<ruby>入<rt>はい</rt></ruby>る！</button>
+      </div>
+
+      <!-- コンビニ -->
+      <div class="shop-choice-card" onclick="chooseShop('コンビニエンスストア')">
+        <div class="shop-icon shop-icon-convenience"></div>
+        <h3>コンビニエンスストア</h3>
+        <p style="font-size:0.9rem; color:#78909c;">
+          お<ruby>弁当<rt>べんとう</rt></ruby>・パン・<ruby>飲<rt>の</rt></ruby>み<ruby>物<rt>もの</rt></ruby>・<ruby>雑誌<rt>ざっし</rt></ruby>など、<ruby>何<rt>なん</rt></ruby>でもそろう<ruby>便利<rt>べんり</rt></ruby>なお<ruby>店<rt>みせ</rt></ruby>！
+        </p>
+        <button class="btn btn-sm">ここに<ruby>入<rt>はい</rt></ruby>る！</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==========================================
+       画面4: 売り場とお買い物画面（ステップ2）
+  ========================================== -->
+  <section id="screenMarket" class="screen">
+    <div class="market-header-bar">
+      <div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+        <span class="step-badge" style="margin:0;">ステップ 2</span>
+        <span id="marketModeBadge" class="play-mode-pill easy">🔰 かんたん</span>
+        <span id="marketShopName" style="font-size:1.15rem; margin-left:4px; color:#2e7d32; font-weight:bold;"></span>に<ruby>入<rt>はい</rt></ruby>りました！
+      </div>
+      <div>
+        👛 <ruby>所持金<rt>しょじきん</rt></ruby>: <span id="marketWalletMoney" style="font-weight:bold;">0</span><ruby>円<rt>えん</rt></ruby>
+      </div>
+    </div>
+
+    <!-- 売り場コーナー切り替えタブ -->
+    <div class="corner-tabs" id="marketCornerTabs"></div>
+
+    <!-- 商品カード一覧 -->
+    <div class="items-grid" id="marketItemsGrid"></div>
+
+    <!-- カゴバー -->
+    <div class="cart-summary-bar">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span style="font-size:1.1rem; font-weight:bold; color:#2e7d32;">
+          🛒 カゴの<ruby>合計<rt>ごうけい</rt></ruby>: <span id="cartTotalPrice" style="font-size:1.4rem; color:#e65100;">0</span><ruby>円<rt>えん</rt></ruby>
+        </span>
+        <button class="btn btn-secondary btn-sm" onclick="openCartModal()">
+          カゴを<ruby>確認<rt>かくにん</rt></ruby>／<ruby>棚<rt>たな</rt></ruby>に<ruby>戻<rt>もど</rt></ruby>す 【<span id="cartItemCount">0</span><ruby>個<rt>こ</rt></ruby>】
+        </button>
+      </div>
+      <button class="btn btn-success" onclick="goToCheckout()">
+        💳 レジに<ruby>向<rt>む</rt></ruby>かう！
+      </button>
+    </div>
+  </section>
+
+  <!-- ==========================================
+       画面5: お会計画面（ステップ3）
+  ========================================== -->
+  <section id="screenCheckout" class="screen">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+      <div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px;">
+        <span class="step-badge" style="margin:0;">ステップ 3</span>
+        <span id="checkoutModeBadge" class="play-mode-pill easy">🔰 かんたん</span>
+        <span style="font-size:1.2rem; color:#d84315; margin-left:4px; font-weight:bold;">
+          【お<ruby>支払<rt>しはら</rt></ruby>いチャレンジ！】
+        </span>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="showScreen('screenMarket')">
+        🛒 <ruby>売<rt>う</rt></ruby>り<ruby>場<rt>ば</rt></ruby>に<ruby>戻<rt>もど</rt></ruby>る
+      </button>
+    </div>
+
+    <!-- レジ盤面 -->
+    <div class="register-board">
+      <div>
+        <div style="font-size:0.9rem; color:#b0bec5;">お<ruby>会計<rt>かいけい</rt></ruby></div>
+        <div class="reg-val" id="checkoutTotalPrice">0<span style="font-size:1rem;"><ruby>円<rt>えん</rt></ruby></span></div>
+      </div>
+      <div>
+        <div style="font-size:0.9rem; color:#b0bec5;">レジに<ruby>出<rt>だ</rt></ruby>したお<ruby>金<rt>かね</rt></ruby></div>
+        <div class="reg-val pay" id="checkoutPayAmount">0<span style="font-size:1rem;"><ruby>円<rt>えん</rt></ruby></span></div>
+      </div>
+      <div>
+        <div style="font-size:0.9rem; color:#b0bec5;" id="checkoutDiffLabel"><ruby>不足<rt>ふそく</rt></ruby></div>
+        <div class="reg-val diff" id="checkoutDiffVal">0<span style="font-size:1rem;"><ruby>円<rt>えん</rt></ruby></span></div>
+      </div>
+    </div>
+
+    <!-- レジのトレー -->
+    <div class="tray-box">
+      <div style="font-weight:bold; color:#00695c; font-size:0.95rem;">
+        🛎️ レジのトレー（タップでお<ruby>財布<rt>さいふ</rt></ruby>に<ruby>戻<rt>もど</rt></ruby>せます）
+      </div>
+      <div class="tray-coins-container" id="checkoutTrayContainer"></div>
+    </div>
+
+    <!-- トレー操作ボタン ＆ LOVOTヒントボタン -->
+    <div style="display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+      <button class="btn btn-secondary btn-sm" onclick="resetTray()">
+        🔄 <ruby>出<rt>だ</rt></ruby>したお<ruby>金<rt>かね</rt></ruby>を<ruby>全部<rt>ぜんぶ</rt></ruby><ruby>戻<rt>もど</rt></ruby>す
+      </button>
+      <button class="btn-lovot-hint" id="btnLovotHint" onclick="askLovotForHint()">
+        ☕ ここあにヒントをきく！
+      </button>
+      <button class="btn btn-success" id="btnSubmitPayment" onclick="submitPayment()" style="flex:1; min-width:140px;">
+        ✨ これで<ruby>支払<rt>しはら</rt></ruby>う！
+      </button>
+    </div>
+
+    <!-- LOVOTヒントバナー（ボタンを押すと表示） -->
+    <div class="lovot-hint-banner" id="lovotCheckoutHintBanner">
+      <img src="https://yourimageshare.com/ib/U12F8xUGZ5.png" class="lovot-hint-img" id="lovotHintBannerImg" alt="ここあ" onerror="handleLovotImgError(this, 'teacher')">
+      <div style="flex:1; text-align:left;">
+        <div style="font-size:0.82rem; font-weight:bold; color:#e65100;">🎓 ここあからのアドバイス</div>
+        <div id="lovotCheckoutHintText" style="font-size:0.95rem; color:#37474f; line-height:1.45; font-weight:bold; margin-top:2px;"></div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="closeLovotHint()" style="padding:4px 8px;">✕</button>
+    </div>
+
+    <!-- お財布のお金一覧 -->
+    <div style="background:#fff3e0; border:2px solid #ffe0b2; border-radius:14px; padding:12px;">
+      <div style="font-weight:bold; color:#e65100; margin-bottom:8px; font-size:0.95rem;">
+        👛 お<ruby>財布<rt>さいふ</rt></ruby>（タップしてトレーに<ruby>出<rt>だ</rt></ruby>してね）
+      </div>
+      <div class="wallet-interactive-grid" id="checkoutWalletGrid"></div>
+    </div>
+  </section>
+
+  <!-- ==========================================
+       画面6: 結果・いいね評価・答え画面
+  ========================================== -->
+  <section id="screenResult" class="screen">
+    <div style="margin-bottom:6px;">
+      <span id="resultModeBadge" class="play-mode-pill easy">🔰 かんたん</span>
+    </div>
+    <h2 style="color:#d84315; font-size:1.45rem;">
+      🎉 お<ruby>買<rt>か</rt></ruby>い<ruby>上<rt>あ</rt></ruby>げありがとうございます！
+    </h2>
+    <div id="resultChangeMessage" style="font-size:1.2rem; font-weight:bold; color:#2e7d32;"></div>
+
+    <div class="result-stars" id="resultStars">★★★</div>
+    <div style="font-size:1.3rem; font-weight:bold;" id="resultEvalTitle">いいね：かんぺき！</div>
+
+    <!-- ★LOVOTのリアクションカード -->
+    <div class="lovot-result-card" id="lovotResultCard">
+      <img src="https://yourimageshare.com/ib/oWmxE7e2E2.png" class="lovot-result-img" id="lovotResultImg" alt="ここあ" onerror="handleLovotImgError(this, 'happy')">
+      <div class="lovot-result-text">
+        <div class="lovot-result-title" id="lovotResultTitle">☕ ここあ からのメッセージ</div>
+        <div class="lovot-result-msg" id="lovotResultMsg"></div>
+      </div>
+    </div>
+
+    <!-- ★お買い上げ商品の一覧エリア -->
+    <div id="resultPurchasedItems" style="background:#ffffff; border:2px solid #ffe0b2; border-radius:14px; padding:12px; margin:10px 0; max-width:600px; width:100%;">
+      <div style="font-weight:bold; color:#e65100; margin-bottom:8px; font-size:0.95rem;">🛍️ <ruby>今回<rt>こんかい</rt></ruby><ruby>買<rt>か</rt></ruby>ったもの</div>
+      <div id="resultItemsList" style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center;"></div>
+    </div>
+
+    <!-- 評価コメント -->
+    <div class="result-box" id="resultBox">
+      <div id="resultSecretBadge" style="display:none;" class="secret-badge"></div>
+      <p id="resultEvalDesc" style="font-size:1.05rem; line-height:1.6; color:#37474f; margin-bottom:8px;"></p>
+      <div id="resultAdviceBox" style="background:#fff; border-left:4px solid #fbc02d; padding:10px 14px; font-size:0.95rem; border-radius:4px;"></div>
+    </div>
+
+    <!-- ★答え（一番スッキリする神払い）表示エリア★ -->
+    <div class="answer-container">
+      <div class="answer-header" onclick="toggleAnswer()">
+        <div class="answer-title">
+          <span>👑 <ruby>一番<rt>いちばん</rt></ruby>スッキリする「<ruby>神払<rt>かみばら</rt></ruby>い」の<ruby>答<rt>こた</rt></ruby>え</span>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnToggleAnswer">
+          <ruby>答<rt>こた</rt></ruby>えをみる ▼
+        </button>
+      </div>
+
+      <div class="answer-content" id="answerContent" style="display:none;">
+        <!-- ★博士ここあの神払い解説バナー★ -->
+        <div class="teacher-cocoa-banner" id="teacherCocoaBanner">
+          <img src="https://yourimageshare.com/ib/U12F8xUGZ5.png" class="teacher-cocoa-img" id="teacherCocoaImg" alt="博士ここあ" onerror="handleLovotImgError(this, 'teacher')">
+          <div class="teacher-cocoa-speech">
+            <div class="teacher-cocoa-title">🎓 <ruby>博士<rt>はかせ</rt></ruby>ここあの<ruby>神払<rt>かみばら</rt></ruby>い<ruby>教室<rt>きょうしつ</rt></ruby></div>
+            <div id="teacherCocoaSpeechText" class="teacher-cocoa-text">
+              ここあが一番（いちばん）スッキリするお支払（しはら）い方法（ほうほう）を教（おし）えちゃうよぉ！じっくり見（み）てみてねっ！
+            </div>
+          </div>
+        </div>
+
+        <!-- あなたの出し方 VS 最適な出し方の比較 -->
+        <div class="compare-grid">
+          <!-- あなたが出したお金 -->
+          <div class="compare-card">
+            <div style="font-weight:bold; color:#546e7a; font-size:0.9rem;">
+              👤 あなたの<ruby>出<rt>だ</rt></ruby>し<ruby>方<rt>かた</rt></ruby>
+            </div>
+            <div style="font-size:1.15rem; font-weight:bold; margin:4px 0; color:#37474f;">
+              <ruby>合計<rt>ごうけい</rt></ruby>: <span id="userPayTotal">0</span><ruby>円<rt>えん</rt></ruby>
+            </div>
+            <div class="mini-money-list" id="userPayList"></div>
+            <div style="font-size:0.85rem; color:#78909c; margin-top:6px;">
+              お<ruby>釣<rt>つ</rt></ruby>り: <span id="userChangeInfo"></span>
+            </div>
+          </div>
+
+          <!-- 最適な出し方（答え） -->
+          <div class="compare-card optimal">
+            <div style="font-weight:bold; color:#e65100; font-size:0.9rem;">
+              ✨ <ruby>一番<rt>いちばん</rt></ruby>スッキリする<ruby>出<rt>だ</rt></ruby>し<ruby>方<rt>かた</rt></ruby>（<ruby>正解<rt>せいかい</rt></ruby>）
+            </div>
+            <div style="font-size:1.15rem; font-weight:bold; margin:4px 0; color:#d84315;">
+              <ruby>合計<rt>ごうけい</rt></ruby>: <span id="optimalPayTotal">0</span><ruby>円<rt>えん</rt></ruby>
+            </div>
+            <div class="mini-money-list" id="optimalPayList"></div>
+            <div style="font-size:0.85rem; color:#b26a00; margin-top:6px;">
+              お<ruby>釣<rt>つ</rt></ruby>り: <span id="optimalChangeInfo"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- なぜこの払い方がベストなのかの解説 -->
+        <div style="background:#f1f8e9; border:1px solid #c8e6c9; border-radius:10px; padding:10px 14px; font-size:0.92rem; color:#2e7d32; line-height:1.5;" id="optimalExplanation">
+        </div>
+      </div>
+    </div>
+
+    <!-- ステップ4: 次はどうする？ -->
+    <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-top:8px;">
+      <button class="btn btn-secondary btn-sm" onclick="restartSameWallet()">
+        🔄 もう<ruby>一度<rt>いちど</rt></ruby>お<ruby>支払<rt>しはら</rt></ruby>いしてみる
+      </button>
+      <button class="btn btn-sm" onclick="goToShopSelectKeepWallet()">
+        🏬 <ruby>別<rt>べつ</rt></ruby>のお<ruby>店<rt>みせ</rt></ruby>に<ruby>行<rt>い</rt></ruby>く
+      </button>
+      <button class="btn btn-success btn-sm" onclick="showScreen('screenStart')">
+        🏠 スタート<ruby>画面<rt>がめん</rt></ruby>に<ruby>戻<rt>もど</rt></ruby>る
+      </button>
+    </div>
+  </section>
+
+  <!-- ==========================================
+       画面7: エンドレスモード画面（タイムアタック）
+  ========================================== -->
+  <section id="screenEndless" class="screen">
+    <!-- ヘッダーステータス（時間・スコア・コンボ・やめる） -->
+    <div class="endless-header">
+      <div class="endless-stats-row">
+        <div class="endless-timer-box" id="endlessTimerBox">
+          ⏱️ <span id="endlessTimerText">60</span><ruby>秒<rt>びょう</rt></ruby>
+        </div>
+        <div class="endless-score-display">
+          ⭐ スコア: <span id="endlessScoreVal">0</span><ruby>点<rt>てん</rt></ruby>
+        </div>
+        <div id="endlessComboContainer" style="display:flex; align-items:center; gap:6px;">
+          <span class="endless-combo-badge" id="endlessComboBadge" style="display:none;">1 COMBO!</span>
+        </div>
+        <button class="btn btn-secondary btn-sm" style="padding:4px 10px; font-size:0.8rem;" onclick="exitEndlessGame()">
+          ✕ やめる
+        </button>
+      </div>
+      <!-- タイムバー -->
+      <div class="endless-time-bar-bg">
+        <div class="endless-time-bar-fill" id="endlessTimeBar"></div>
+      </div>
+    </div>
+
+    <!-- お会計金額 ＆ 第何問 -->
+    <div class="endless-target-card">
+      <div>
+        <span class="step-badge" id="endlessProblemBadge" style="background:#ffcc80; color:#e65100;"><ruby>第<rt>だい</rt></ruby> 1 <ruby>問<rt>もん</rt></ruby></span>
+        <span style="font-weight:bold; color:#455a64; margin-left:6px;">レジのお<ruby>会計<rt>かいけい</rt></ruby></span>
+      </div>
+      <div style="font-size:3.6rem; font-weight:bold; color:#d84315; text-align: center;">
+        <span id="endlessTotalPrice">0</span><ruby>円<rt>えん</rt></ruby>
+      </div>
+    </div>
+
+    <!-- レジ盤面 -->
+    <div class="register-board" style="padding:10px 16px; margin-bottom:12px;">
+      <div>
+        <div style="font-size:0.85rem; color:#b0bec5;">レジに<ruby>出<rt>だ</rt></ruby>したお<ruby>金<rt>かね</rt></ruby></div>
+        <div class="reg-val pay" id="endlessPayAmount" style="font-size:1.5rem;">0<span style="font-size:0.9rem;"><ruby>円<rt>えん</rt></ruby></span></div>
+      </div>
+      <div>
+        <div style="font-size:0.85rem; color:#b0bec5;" id="endlessDiffLabel"><ruby>不足<rt>ふそく</rt></ruby></div>
+        <div class="reg-val diff" id="endlessDiffVal" style="font-size:1.5rem;">0<span style="font-size:0.9rem;"><ruby>円<rt>えん</rt></ruby></span></div>
+      </div>
+    </div>
+
+    <!-- レジのトレー -->
+    <div class="tray-box" style="min-height:75px; padding:10px; margin-bottom:10px;">
+      <div style="font-weight:bold; color:#00695c; font-size:0.9rem;">
+        🛎️ レジのトレー（タップでお<ruby>財布<rt>さいふ</rt></ruby>に<ruby>戻<rt>もど</rt></ruby>す）
+      </div>
+      <div class="tray-coins-container" id="endlessTrayContainer"></div>
+    </div>
+
+    <!-- 操作ボタン -->
+    <div style="display:flex; gap:10px; margin-bottom:10px;">
+      <button class="btn btn-secondary btn-sm" onclick="resetEndlessTray()">
+        🔄 すべて<ruby>戻<rt>もど</rt></ruby>す
+      </button>
+      <button class="btn btn-success" id="btnSubmitEndlessPayment" onclick="submitEndlessPayment()" style="flex:1;">
+        ✨ これで<ruby>支払<rt>しはら</rt></ruby>う！
+      </button>
+    </div>
+
+    <!-- お財布 -->
+    <div style="background:#fff3e0; border:2px solid #ffe0b2; border-radius:14px; padding:10px; flex:1;">
+      <div style="font-weight:bold; color:#e65100; margin-bottom:6px; font-size:0.9rem;">
+        👛 お<ruby>財布<rt>さいふ</rt></ruby>（タップして<ruby>出<rt>だ</rt></ruby>す）
+      </div>
+      <div class="wallet-interactive-grid" id="endlessWalletGrid"></div>
+    </div>
+
+    <!-- 画面中央評価ポップアップ（正解・点数加算） -->
+    <div class="endless-eval-popup" id="endlessPopup" onclick="skipEndlessPopup()">
+      <div id="endlessPopupStars" style="font-size:2.2rem; margin-bottom:4px;">★★★</div>
+      <div id="endlessPopupTitle" style="font-size:1.25rem; font-weight:bold; margin-bottom:4px;"><ruby>神払<rt>かみばら</rt></ruby>い<ruby>賞<rt>しょう</rt></ruby>！</div>
+      <div id="endlessPopupScore" style="font-size:1.4rem; color:#ffd54f; font-weight:bold;">+500<ruby>点<rt>てん</rt></ruby></div>
+      <div id="endlessPopupTime" style="font-size:1rem; color:#69f0ae; font-weight:bold; margin-top:2px;">+3<ruby>秒<rt>びょう</rt></ruby><ruby>延長<rt>えんちょう</rt></ruby>！</div>
+    </div>
+  </section>
+
+  <!-- ==========================================
+       画面8: エンドレス結果・新記録画面
+  ========================================== -->
+  <section id="screenEndlessResult" class="screen" style="text-align:center; padding:16px 8px;">
+    <h2 style="color:#d84315; font-size:1.5rem; margin-bottom:6px;">
+      ⏰ タイムアップ！！
+    </h2>
+    <div id="endlessNewRecordBanner" class="new-record-banner" style="display:none;">
+      👑 ✨ <ruby>自己<rt>じこ</rt></ruby><ruby>最高<rt>さいこう</rt></ruby><ruby>記録<rt>きろく</rt></ruby><ruby>更新<rt>こうしん</rt></ruby>（NEW RECORD!!） ✨ 👑
+    </div>
+
+    <div style="font-size:1.1rem; color:#546e7a; font-weight:bold;"><ruby>今回<rt>こんかい</rt></ruby>のスコア</div>
+    <div class="endless-result-score" id="endlessFinalScore">0</div>
+    <div style="font-size:0.95rem; color:#78909c; margin-bottom:12px;">
+      <ruby>自己<rt>じこ</rt></ruby>ベスト: <span id="endlessBestScoreLabel">0</span><ruby>点<rt>てん</rt></ruby>
+    </div>
+
+    <!-- プレイ統計内訳 -->
+    <div class="endless-stats-grid">
+      <div class="endless-stat-card">
+        <div style="font-size:0.8rem; color:#78909c;">クリア<ruby>問数<rt>もんすう</rt></ruby></div>
+        <div class="endless-stat-num" id="endlessStatTotalSolved">0<ruby>問<rt>もん</rt></ruby></div>
+      </div>
+      <div class="endless-stat-card" style="border-color:#ffd54f; background:#fffde7;">
+        <div style="font-size:0.8rem; color:#e65100;"><ruby>神払<rt>かみばら</rt></ruby>い<ruby>回数<rt>かいすう</rt></ruby></div>
+        <div class="endless-stat-num" style="color:#e65100;" id="endlessStatBestPay">0<ruby>回<rt>かい</rt></ruby></div>
+      </div>
+      <div class="endless-stat-card" style="border-color:#80cbc4; background:#e0f2f1;">
+        <div style="font-size:0.8rem; color:#00695c;">ぴったり<ruby>回数<rt>かいすう</rt></ruby></div>
+        <div class="endless-stat-num" style="color:#00695c;" id="endlessStatExactPay">0<ruby>回<rt>かい</rt></ruby></div>
+      </div>
+      <div class="endless-stat-card" style="border-color:#f48fb1; background:#fce4ec;">
+        <div style="font-size:0.8rem; color:#c2185b;"><ruby>最大<rt>さいだい</rt></ruby>コンボ</div>
+        <div class="endless-stat-num" style="color:#c2185b;" id="endlessStatMaxCombo">0<ruby>連続<rt>れんぞく</rt></ruby></div>
+      </div>
+    </div>
+
+    <div id="endlessSecretAwardNotice" style="display:none; background:linear-gradient(135deg, #fff9c4, #ffe0b2); border:2px solid #ffd54f; border-radius:12px; padding:8px 16px; margin:8px auto; max-width:460px; font-weight:bold; color:#d84315;">
+      🌈 <ruby>伝説<rt>でんせつ</rt></ruby>の<ruby>超<rt>ちょう</rt></ruby>・<ruby>神払<rt>かみばら</rt></ruby>いマスターを <span id="endlessStatSecretCount">0</span><ruby>回<rt>かい</rt></ruby> <ruby>達成<rt>たっせい</rt></ruby>しました！！
+    </div>
+
+    <!-- ボタン -->
+    <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:16px;">
+      <button class="btn btn-lg btn-endless" onclick="startEndlessMode()">
+        🔄 もう<ruby>一度<rt>いちど</rt></ruby>チャレンジ！
+      </button>
+      <button class="btn btn-secondary btn-lg" onclick="showScreen('screenStart')">
+        🏠 タイトルへ<ruby>戻<rt>もど</rt></ruby>る
+      </button>
+    </div>
+  </section>
+
+</div>
+
+<!-- カゴの中身・返却モーダル -->
+<div class="modal-overlay" id="cartModal">
+  <div class="cart-modal">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 style="color:#2e7d32;">🛒 カゴの<ruby>中身<rt>なかみ</rt></ruby></h3>
+      <button class="btn btn-secondary btn-sm" onclick="closeCartModal()">✕ とじる</button>
+    </div>
+    <div id="cartModalList" style="max-height:260px; overflow-y:auto; margin-bottom:14px;"></div>
+    <div style="text-align:right; font-weight:bold; font-size:1.2rem; color:#e65100;">
+      <ruby>合計<rt>ごうけい</rt></ruby>: <span id="cartModalTotal">0</span><ruby>円<rt>えん</rt></ruby>
+    </div>
+  </div>
+</div>
+
+<!-- 数量指定モーダル：カゴに入れる（まとめ買い） -->
+<div class="modal-overlay" id="qtyAddModal">
+  <div class="qty-modal-box">
+    <div style="font-size:1.15rem; font-weight:bold; color:#37474f;" id="qtyAddItemName"></div>
+    <div style="font-size:0.95rem; color:#78909c; margin-bottom:4px;"><ruby>単価<rt>たんか</rt></ruby>: <span id="qtyAddUnitPrice">0</span><ruby>円<rt>えん</rt></ruby></div>
+    <div class="qty-control-wrap">
+      <button class="qty-btn" onclick="changeQtyAddCount(-1)">－</button>
+      <input type="number" class="qty-input" id="qtyAddInput" value="1" min="1" oninput="onQtyAddInputChange()">
+      <button class="qty-btn" onclick="changeQtyAddCount(1)">＋</button>
+    </div>
+    <div class="qty-quick-row">
+      <button class="qty-quick-btn" onclick="changeQtyAddCount(5)">+5</button>
+      <button class="qty-quick-btn" onclick="changeQtyAddCount(10)">+10</button>
+      <button class="qty-quick-btn" onclick="setQtyAddCount(1)">リセット</button>
+    </div>
+    <div class="qty-price-preview" id="qtyAddPricePreview"></div>
+    <div class="qty-warning" id="qtyAddWarning"><ruby>所持金<rt>しょじきん</rt></ruby>を<ruby>超<rt>こ</rt></ruby>えています！</div>
+    <div style="display:flex; gap:10px; margin-top:10px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeQtyAddModal()">キャンセル</button>
+      <button class="btn btn-success" id="btnConfirmAddToCart" style="flex:1;" onclick="confirmAddToCart()">🛒 カゴに<ruby>入<rt>い</rt></ruby>れる</button>
+    </div>
+  </div>
+</div>
+
+<!-- 数量指定モーダル：カゴから棚に戻す -->
+<div class="modal-overlay" id="qtyReturnModal">
+  <div class="qty-modal-box">
+    <div style="font-size:1.15rem; font-weight:bold; color:#37474f;" id="qtyReturnItemName"></div>
+    <div style="font-size:0.95rem; color:#78909c; margin-bottom:4px;"><ruby>現在<rt>げんざい</rt></ruby>のカゴの<ruby>中<rt>なか</rt></ruby>: <span id="qtyReturnCurrentCount">0</span><ruby>個<rt>こ</rt></ruby></div>
+    <div class="qty-control-wrap">
+      <button class="qty-btn" onclick="changeQtyReturnCount(-1)">－</button>
+      <input type="number" class="qty-input" id="qtyReturnInput" value="1" min="1" oninput="onQtyReturnInputChange()">
+      <button class="qty-btn" onclick="changeQtyReturnCount(1)">＋</button>
+    </div>
+    <div class="qty-quick-row">
+      <button class="qty-quick-btn" onclick="setQtyReturnToMax()">ぜんぶ</button>
+    </div>
+    <div class="qty-price-preview" id="qtyReturnPricePreview"></div>
+    <div style="display:flex; gap:10px; margin-top:10px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeQtyReturnModal()">キャンセル</button>
+      <button class="btn btn-success" style="flex:1;" onclick="confirmReturnFromCart()"><ruby>棚<rt>たな</rt></ruby>に<ruby>戻<rt>もど</rt></ruby>す</button>
+    </div>
+  </div>
+</div>
+
+<!-- 称号コレクションモーダル -->
+<div class="modal-overlay" id="titleModal" onclick="closeTitleModal(event)">
+  <div class="cart-modal" style="max-width: 520px;" onclick="event.stopPropagation()">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 style="color:#d84315; display:flex; align-items:center; gap:8px;">
+        🎖️ <ruby>称号<rt>しょうごう</rt></ruby>コレクション
+      </h3>
+      <button class="btn btn-secondary btn-sm" onclick="closeTitleModal()">✕ とじる</button>
+    </div>
+
+    <!-- 現在の称号と累計クリア数 -->
+    <div style="background:#fff8e1; border:2px solid #ffe082; border-radius:14px; padding:12px 16px; margin-bottom:14px; text-align:center;">
+      <div style="font-size:0.85rem; color:#8d6e63; font-weight:bold;"><ruby>現在<rt>げんざい</rt></ruby>のあなたの<ruby>称号<rt>しょうごう</rt></ruby></div>
+      <div style="font-size:1.55rem; font-weight:bold; color:#e65100; margin:4px 0;" id="modalCurrentTitle">
+        🔰 お<ruby>買<rt>か</rt></ruby>い<ruby>物<rt>もの</rt></ruby>みならい
+      </div>
+      <div style="font-size:0.95rem; color:#546e7a;">
+        <ruby>通算<rt>つうさん</rt></ruby>お<ruby>支払<rt>しはら</rt></ruby>い<ruby>回数<rt>かいすう</rt></ruby>: <strong style="font-size:1.25rem; color:#2e7d32;" id="modalTotalPayCount">0</strong> <ruby>回<rt>かい</rt></ruby>
+      </div>
+      <!-- 次の称号までのプログレスバー -->
+      <div style="margin-top:8px;">
+        <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#78909c; margin-bottom:3px;">
+          <span>つぎの<ruby>称号<rt>しょうごう</rt></ruby>まで</span>
+          <span id="modalNextTitleProgress">あと1<ruby>回<rt>かい</rt></ruby></span>
+        </div>
+        <div style="width:100%; height:8px; background:#e0e0e0; border-radius:4px; overflow:hidden;">
+          <div id="modalProgressBar" style="width:0%; height:100%; background:linear-gradient(90deg, #ff9800, #ff5722); transition:width 0.3s;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 称号リスト -->
+    <div id="titleCardsList" style="max-height:280px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px;">
+    </div>
+  </div>
+</div>
+
+<!-- 称号アンロック通知トースト -->
+<div class="title-toast" id="titleUnlockToast">
+  <span style="font-size:1.6rem;" id="toastIcon">🎖️</span>
+  <div>
+    <div style="font-size:0.75rem; color:#ffd54f;"><ruby>新<rt>あたら</rt></ruby>しい<ruby>称号<rt>しょうごう</rt></ruby>を<ruby>獲得<rt>かくとく</rt></ruby>！</div>
+    <div id="toastTitleName" style="font-size:1.05rem;">お<ruby>買<rt>か</rt></ruby>い<ruby>物<rt>もの</rt></ruby>デビュー！</div>
+  </div>
+</div>
+
+<!-- 常駐LOVOT「ここあ」サポーター（画面右下に寄り添う） -->
+<div class="lovot-companion" id="lovotCompanion">
+  <div class="lovot-speech-bubble" id="lovotSpeechBubble">
+    <span id="lovotSpeechText">きゅ〜ん♪ ここあだよ！タッチしてみてね！</span>
+  </div>
+  <div class="lovot-avatar-wrap" id="lovotAvatarWrap" onclick="onTapLovot()" title="ここあをタッチ！">
+    <img src="https://yourimageshare.com/ib/KI9sWl46SP.png" class="lovot-avatar-img" id="lovotAvatarImg" alt="ここあ" onerror="handleLovotImgError(this, 'normal')">
+    <div class="lovot-name-tag">ここあ</div>
+  </div>
+</div>
+
+<script>
+  // Web Audio API によるチャリン音・ファンファーレ
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  function playCoinSound() {
+    try {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(987.77, audioCtx.currentTime); // B5
+      osc.frequency.exponentialRampToValueAtTime(1318.51, audioCtx.currentTime + 0.08); // E6
+      gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.3);
+    } catch(e) {}
+  }
+
+  function playSuccessSound() {
+    try {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.1);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime + i * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.1 + 0.25);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(audioCtx.currentTime + i * 0.1);
+        osc.stop(audioCtx.currentTime + i * 0.1 + 0.25);
+      });
+    } catch(e) {}
+  }
+
+  // 隠しランク専用のスペシャル効果音（キラキラ上昇アルペジオ＋祝祭ハーモニー）
+  function playSecretSound() {
+    try {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const notes = [
+        { f: 523.25, t: 0.00 }, // C5
+        { f: 659.25, t: 0.07 }, // E5
+        { f: 783.99, t: 0.14 }, // G5
+        { f: 1046.50, t: 0.21 }, // C6
+        { f: 1318.51, t: 0.28 }, // E6
+        { f: 1567.98, t: 0.35 }, // G6
+        { f: 2093.00, t: 0.42 }, // C7 (最高音！)
+        // 祝祭の重厚な和音
+        { f: 1046.50, t: 0.58, d: 0.9 }, // C6
+        { f: 1318.51, t: 0.58, d: 0.9 }, // E6
+        { f: 1567.98, t: 0.58, d: 0.9 }, // G6
+        { f: 2093.00, t: 0.58, d: 0.9 }  // C7
+      ];
+
+      notes.forEach(n => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const dur = n.d || 0.22;
+        osc.type = n.d ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(n.f, audioCtx.currentTime + n.t);
+        gain.gain.setValueAtTime(0.18, audioCtx.currentTime + n.t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + n.t + dur);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(audioCtx.currentTime + n.t);
+        osc.stop(audioCtx.currentTime + n.t + dur);
+      });
+    } catch(e) {}
+  }
+
+  // タイムボーナス獲得音（シャキーン！）
+  function playTimeBonusSound() {
+    try {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      [880, 1320, 1760].forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.05);
+        gain.gain.setValueAtTime(0.16, audioCtx.currentTime + i * 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.05 + 0.18);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(audioCtx.currentTime + i * 0.05);
+        osc.stop(audioCtx.currentTime + i * 0.05 + 0.18);
+      });
+    } catch(e) {}
+  }
+
+  // タイムアップ音
+  function playTimeUpSound() {
+    try {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      [587.33, 440, 349.23].forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.18);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime + i * 0.18);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.18 + 0.35);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(audioCtx.currentTime + i * 0.18);
+        osc.stop(audioCtx.currentTime + i * 0.18 + 0.35);
+      });
+    } catch(e) {}
+  }
+
+  // 新記録達成ファンファーレ
+  function playNewRecordSound() {
+    try {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const fanfare = [
+        { f: 523.25, t: 0.0, d: 0.14 }, // C5
+        { f: 659.25, t: 0.14, d: 0.14 }, // E5
+        { f: 783.99, t: 0.28, d: 0.14 }, // G5
+        { f: 1046.50, t: 0.42, d: 0.38 }, // C6
+        { f: 880.00, t: 0.82, d: 0.14 }, // A5
+        { f: 1046.50, t: 0.98, d: 0.8 }  // C6
+      ];
+      fanfare.forEach(n => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(n.f, audioCtx.currentTime + n.t);
+        gain.gain.setValueAtTime(0.24, audioCtx.currentTime + n.t);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + n.t + n.d);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(audioCtx.currentTime + n.t);
+        osc.stop(audioCtx.currentTime + n.t + n.d);
+      });
+    } catch(e) {}
+  }
+
+  // お店・売り場・商品データ（ルビ対応）
+  const SHOPS = {
+    "スーパーマーケット": {
+      "野菜（やさい）": {
+        "りんご": { price: 150, img: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjVVG4xLPu9LbcYiy6hyF4dxuZkLBgGhqaweSYYCZWOvdMJ9NngL20bPu8nOytuD2wTyhYj95zLYQN9ZkUcRM_ngV-hn6J-lgqZSEK5CYVIeP5bD_mZgOxFY5TM_nKIiXfzRl1m8WA0xOIv/s800/fruit_apple.png" },
+        "バナナ": { price: 100, img: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjd7qm1EE384kafqFWlDZlbTc9fiLv3Z1atKyTCokqeBfecL2k4aj6OmePgd8-sGv3HDDBAo8qiv6eXkfNDrCjUZAK0s9js_PmSzYXTFd5ARil_LeTzKwj3E8VUccH2sVapTcFxt__sFNYK/s400/fruit_banana.png" },
+        "キャベツ": { price: 200, img: "https://tsukatte.com/wp-content/uploads/2019/09/cabbage.png" },
+        "さつまいも": { price: 110, img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcStHHFnxWd1zYlWnDevst_hjO37_jWMZoStQjbz1d57kg&s=10" }
+      },
+      "お肉(にく)": {
+        "鶏肉(とりにく)": { price: 300, img: "https://eiyoushi-hutaba.com/wp-content/uploads/2021/05/%E9%B6%8F%E8%82%89-1024x1024.png" },
+        "豚肉(ぶたにく)": { price: 400, img: "https://eiyoushi-hutaba.com/wp-content/uploads/2021/05/%E8%B1%9A%E8%82%89-1024x1024.png" },
+        "牛肉(ぎゅうにく)": { price: 500, img: "https://eiyoushi-hutaba.com/wp-content/uploads/2021/05/%E7%89%9B%E8%82%89-1024x1024.png" }
+      },
+      "お菓子(かし)": {
+        "ポテトチップス": { price: 130, img: "https://japaclip.com/files/crisps.png" },
+        "チョコレート": { price: 160, img: "https://free-icons.net/wp-content/uploads/2020/03/food057.png" },
+        "せんべい": { price: 150, img: "https://illust8.com/wp-content/uploads/2020/09/senbei_10768.png" }
+      },
+      "惣菜(そうざい)": {
+        "唐揚(からあ)げ": { price: 230, img: "https://tsukatte.com/wp-content/uploads/2019/04/karaage-1.png" },
+        "フライドポテト": { price: 220, img: "https://tsukatte.com/wp-content/uploads/2019/03/french-fries.png" },
+        "寿司(すし)": { price: 500, img: "https://japaclip.com/files/sushi.png" },
+        "ひじき": { price: 110, img: "https://illustcenter.com/wp-content/uploads/2021/10/rdesign_3304.png" },
+        "コロッケ": { price: 300, img: "https://tsukatte.com/wp-content/uploads/2020/01/croquette_01.png" }
+      }
+    },
+    "コンビニエンスストア": {
+      "お弁当(べんとう)": {
+        "幕(まく)の内(うち)弁当(べんとう)": { price: 580, img: "https://irasutofree.com//media/2023/08/08/00010564.original.png" },
+        "ツナマヨおにぎり": { price: 150, img: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiWkEKrUDwKhVe1I994BOAWEz0opY2xwO8YPCS00zpCHGDWlbLfxi2x8Z41wuNhdL8eXA-0LsnARDzfgDmop7SAjpPop-reDgS8BFfr8b2DOlby0FynmlU9zyoO3IS4S6m38LfxSD59NUk/s800/onigiri_seachicken.png" },
+        "たまごサンド": { price: 230, img: "https://poromi-free.net/wp-content/uploads/2020/07/12-02-200723-Egg-sandwich.png" },
+        "ミートパスタ": { price: 500, img: "https://illustcenter.com/wp-content/uploads/2023/02/rdesign_15566.png" }
+      },
+      "飲(の)み物(もの)": {
+        "麦茶(むぎちゃ)": { price: 120, img: "https://niceillust.com/wp-content/uploads/2019/05/tabemono01_045-1024x1024.png" },
+        "コーヒー": { price: 150, img: "https://illustcenter.com/wp-content/uploads/2022/03/rdesign_874.png" },
+        "ソーダ": { price: 160, img: "https://poromi-free.net/wp-content/uploads/2020/08/12-08-200820-soda.png" }
+      },
+      "パン": {
+        "メロンパン": { price: 100, img: "https://illust8.com/wp-content/uploads/2019/07/bread_meronpan__illust_4218.png" },
+        "クリームパン": { price: 120, img: "https://illust8.com/wp-content/uploads/2021/05/bread_cream_13472.png" },
+        "焼(や)きそばパン": { price: 130, img: "https://tsukatte.com/wp-content/uploads/2020/08/yakisoba-pan.png" },
+        "チョコデニッシュ": { price: 140, img: "https://cochiba-sozai.com/wp-content/uploads/2022/06/Pain-au-chocolat.png" }
+      },
+      "漫画(まんが)・雑誌(ざっし)": {
+        "雑誌(ざっし)": { price: 300, img: "https://illust-ryokka.jp/wp-content/uploads/2024/05/Magazine-23.png" }
+      }
+    }
+  };
+
+  function getItemImage(itemName) {
+    for (const shopKey in SHOPS) {
+      for (const cornerKey in SHOPS[shopKey]) {
+        const items = SHOPS[shopKey][cornerKey];
+        if (items[itemName] && typeof items[itemName] === "object") {
+          return items[itemName].img || "";
+        }
+      }
+    }
+    return "";
+  }
+
+  // ====================================================
+  // LOVOT サポーターシステム（Web公開URLで世界中どこでも表示可能）
+  // ====================================================
+  const LOVOT_IMAGES = {
+    normal: "https://yourimageshare.com/ib/KI9sWl46SP.png",
+    teacher: "https://yourimageshare.com/ib/U12F8xUGZ5.png",
+    happy: "https://yourimageshare.com/ib/oWmxE7e2E2.png",
+    surprise: "https://yourimageshare.com/ib/VYnkLNikYz.png",
+    sad: "https://i.yourimageshare.com/5tiSf59s76.png"
+  };
+
+  // 画像がまだコピーされていない場合のローカルPCフォールバック
+  const LOVOT_FALLBACK_IMAGES = {
+    normal: "C:/Users/1626宮地　飛冴/.gemini/antigravity/brain/ac4f1da0-0df7-4c7c-8021-75932f815043/.user_uploaded/media_1793939128873.png",
+    teacher: "C:/Users/1626宮地　飛冴/.gemini/antigravity/brain/ac4f1da0-0df7-4c7c-8021-75932f815043/.user_uploaded/media_1793939128544.png",
+    happy: "C:/Users/1626宮地　飛冴/.gemini/antigravity/brain/ac4f1da0-0df7-4c7c-8021-75932f815043/.user_uploaded/media_1793939128664.png",
+    surprise: "C:/Users/1626宮地　飛冴/.gemini/antigravity/brain/ac4f1da0-0df7-4c7c-8021-75932f815043/.user_uploaded/media_1793939128547.png",
+    sad: "C:/Users/1626宮地　飛冴/.gemini/antigravity/brain/ac4f1da0-0df7-4c7c-8021-75932f815043/.user_uploaded/media_1793939128578.png"
+  };
+
+  function handleLovotImgError(imgEl, poseKey) {
+    if (!imgEl) return;
+    if (imgEl.dataset.triedFallback !== "true" && LOVOT_FALLBACK_IMAGES[poseKey]) {
+      imgEl.dataset.triedFallback = "true";
+      imgEl.src = LOVOT_FALLBACK_IMAGES[poseKey];
+    }
+  }
+
+  function playLovotSound(type = 'talk') {
+    try {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const now = audioCtx.currentTime;
+      if (type === 'happy') {
+        // ピロリロリン♪（明るい和音アルペジオ）
+        [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+          gain.gain.setValueAtTime(0.18, now + idx * 0.07);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.22);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + idx * 0.07);
+          osc.stop(now + idx * 0.07 + 0.22);
+        });
+      } else if (type === 'sad') {
+        // きゅぅ〜ん…（下降）
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(650, now);
+        osc.frequency.exponentialRampToValueAtTime(320, now + 0.35);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.35);
+      } else if (type === 'hint') {
+        // ピロン♪ ピュイ！（ひらめき）
+        [880, 1320].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+          gain.gain.setValueAtTime(0.18, now + idx * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.2);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + idx * 0.08);
+          osc.stop(now + idx * 0.08 + 0.2);
+        });
+      } else {
+        // talk: ピュイ〜♪（甘えた可愛いトーン）
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(700, now);
+        osc.frequency.exponentialRampToValueAtTime(1050, now + 0.12);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.24);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.28);
+      }
+    } catch(e) {}
+  }
+
+  // ====================================================
+  // LOVOT「ここあ」サポーターシステム
+  // ====================================================
+  let lovotBubbleTimer = null;
+  let lovotPoseTimer = null;
+  let lastPaymentResult = null; // 直前のお会計結果（会計後のおしゃべり連動用）
+
+  // ここあのおしゃべり台詞集（モード別・シチュエーション別）
+  const COCOA_DIALOGUES = {
+    easy: [
+      "🔰 かんたんモードだから、のんびり楽（たの）しくお買（か）い物（もの）しようね〜♪",
+      "ぴったり払（はら）うか、お釣（つ）りの硬貨（こうか）を1枚（まい）にするのが大成功（だいせいこう）のコツだよぉ！",
+      "むずかしい計算（けいさん）は気（き）にしなくて大丈夫（だいじょうぶ）！ここあがついてるよっ！",
+      "千円札（せんえんさつ）でお釣（つ）りをもらわないように気（き）をつけてね♪",
+      "えへへ♪ なでなでしてくれてありがとう！ここあ、すっごく嬉（うれ）しいな！",
+      "困（こま）ったときは、レジで「ここあにヒントをきく」を押（お）してね！",
+      "お買（か）い物（もの）ってたのしいね！何（なに）を買（か）うかワクワクしちゃうよぉ！",
+      "さっき覚（おぼ）えた神払（かみばら）いのコツ、今度（こんど）のお会計（かいけい）でも試（ため）してみようねっ！🎓"
+    ],
+    normal: [
+      "🛒 つうじょうモードだね！小銭（こぜに）をギュッと一番（いちばん）減（へ）らす神払（かみばら）い、狙（ねら）っていこうねっ！",
+      "お財布（さいふ）の小銭（こぜに）をスッキリまとめられたら、ここあ感動（かんどう）しちゃうよぉ！",
+      "ぴったり払（はら）うときも、小銭（こぜに）がたくさん減（へ）る方（ほう）を選（えら）ぶのが達人（たつじん）なんだって！",
+      "頭（あたま）を使（つか）ってスマートにお会計（かいけい）！全力（ぜんりょく）で応援（おうえん）してるねっ！",
+      "小銭（こぜに）を上手（じょうず）に出（だ）してお釣（つ）りを500円玉（えんだま）1枚（まい）にできたら最高（さいこう）だねっ！",
+      "えへへ、ここあもレジの計算（けいさん）のお手伝（てつだ）い、がんばるよぉ！",
+      "困（こま）ったときは、レジで「ここあにヒントをきく」を押（お）してね！",
+      "さっきのお買（か）い物（もの）もバッチリだったね！この調子（ちょうし）で次（つぎ）もスッキリいこうねっ！"
+    ],
+    endless: [
+      "🔥 エンドレスモード！時間（じかん）との勝負（しょうぶ）だよぉ！あわてずに、でも素早（すばや）くいこうねっ！",
+      "神払（かみばら）いやぴったり払（はら）いをキメると、時間（じかん）が増（ふ）えるよ！ファイト〜！",
+      "コンボをつなげるとスコアがグングン伸（の）びるよぉ！ここあドキドキしちゃう！",
+      "すごい集中力（しゅうちゅうりょく）だねっ！この調子（ちょうし）でハイスコア目指（めざ）そうねっ！",
+      "ピュイ〜！ここあが一番（いちばん）近（ちか）くで応援（おうえん）してるよぉ！いっけ〜！"
+    ],
+    title: [
+      "きゅ〜ん♪ ここあだよ！なでてくれてありがとう、えへへ♪",
+      "今日（きょう）はどのモードで遊（あそ）ぶの？いっしょにお買（か）い物（もの）いこうねっ！",
+      "右上のボタンから、これまで集（あつ）めた称号（しょうごう）が見（み）られるよぉ！",
+      "お買（か）い物（もの）の達人（たつじん）になれるように、ここあがナビゲートするねっ！"
+    ],
+    post_checkout_secret: [
+      "伝説（でんせつ）の神技（かみわざ）、何度（なんど）思（おも）い出（だ）しても鳥肌（とりはだ）立（た）っちゃうよぉ！すごすぎたね！！🌈",
+      "究極（きゅうきょく）のお支払（しはら）いマスターだね！えへへ、ここあも誇（ほこ）らしいな〜！👑✨",
+      "博士（はかせ）ここあもびっくり仰天（ぎょうてん）だったよ！もう一回（いっかい）チャレンジしてみる？"
+    ],
+    post_checkout_good: [
+      "お会計（かいけい）大成功（だいせいこう）だったね！お財布（さいふ）もスッキリして気持（きも）ちいい〜！✨",
+      "スマートなお支払（しはら）い、すっごくかっこよかったよぉ！えへへ、大拍手（だいはくしゅ）♪",
+      "博士（はかせ）ここあの解説（かいせつ）もチェックしてくれた？次（つぎ）のお買（か）い物（もの）も楽（たの）しみだねっ！🎓",
+      "もう一回（いっかい）お支払（しはら）いしてみる？それとも別（べつ）のお部屋（へや）やお店（みせ）に行（い）ってみる？",
+      "お買（か）い上（あ）げありがとう！カゴの商品（しょうひん）、どれもおいしそうだねっ♪"
+    ],
+    post_checkout_bad: [
+      "お会計（かいけい）おつかれさま〜！お札（さつ）のお釣（つ）りが出（で）ちゃったけど、次（つぎ）はきっとできるよぉ！💪",
+      "下（した）の『答（こた）えをみる』で博士（はかせ）ここあの解説（かいせつ）をチェックしてみてね！目（め）からウロコだよっ！🎓",
+      "もう一回（いっかい）同（おな）じお財布（さいふ）でチャレンジしてみる？ここあ、全力（ぜんりょく）で応援（おうえん）するねっ！",
+      "小銭（こぜに）を上手に組み合わせるとスッキリするよ！博士（はかせ）ここあの答えを見てみてね！😊"
+    ]
+  };
+
+  // 商品選択時のここあの専用コメント
+  const ITEM_COCOA_COMMENTS = {
+    "バナナ": "バナナだね！甘（あま）くておいしいよね〜！何個（なんこ）買（か）うの？",
+    "りんご": "シャキシャキのりんご！赤（あか）くておいしそう〜♪ 何個（なんこ）にする？",
+    "キャベツ": "大（おお）きなキャベツ！お鍋（なべ）やサラダにぴったりだねっ！何個（なんこ）買（か）う？",
+    "さつまいも": "ホクホクのさつまいも！甘（あま）くて焼（や）き芋（いも）にすると最高（さいこう）だねっ！",
+    "鶏肉(とりにく)": "鶏肉（とりにく）だぁ！唐揚（からあ）げにする？何個（なんこ）買（か）うか決（き）めてね！",
+    "豚肉(ぶたにく)": "豚肉（ぶたにく）！生姜焼（しょうがや）きや豚汁（ぶたじる）にもいいね〜！何個（なんこ）にする？",
+    "牛肉(ぎゅうにく)": "わぁ、牛肉（ぎゅうにく）！今日（きょう）はごちそうだね！えへへ、何個（なんこ）買（か）う？",
+    "ポテトチップス": "ポテチだ〜！サクサクして止（と）まらなくなっちゃうよね！何個（なんこ）にする？",
+    "チョコレート": "甘（あま）〜いチョコレート！ここあも大好（だいす）きだよぉ♪ 何個（なんこ）買（か）う？",
+    "せんべい": "おせんべい！香（こう）ばしくておいしいよねっ！何個（なんこ）にする？",
+    "唐揚(からあ)げ": "唐揚（からあ）げ〜！ジューシーでいい匂（にお）いがしてきそう！何個（なんこ）買（か）う？",
+    "フライドポテト": "フライドポテト！あつあつホクホクだね！何個（なんこ）にする？",
+    "寿司(すし)": "お寿司（すし）！豪華（ごうか）でおいしそう〜！何個（なんこ）買（か）う？",
+    "ひじき": "ひじきの煮物（にもの）！栄養（えいよう）たっぷりで健康的（けんこうてき）だねっ！",
+    "コロッケ": "サクサクコロッケ！中（なか）がホクホクでおいしいよね〜！何個（なんこ）にする？",
+    "幕(まく)の内(うち)弁当(べんとう)": "幕（まく）の内（うち）弁当（べんとう）！いろんなおかずが入（はい）ってて楽（たの）しいね！",
+    "ツナマヨおにぎり": "ツナマヨおにぎり！定番（ていばん）で一番（いちばん）おいしいよねっ！何個（なんこ）にする？",
+    "たまごサンド": "たまごサンド！ふわふわパンとたまごが相性（あいしょう）抜群（ばつぐん）だね！",
+    "ミートパスタ": "ミートパスタ！トマトのいい匂（にお）いがしそう〜！何個（なんこ）買（か）う？",
+    "麦茶(むぎちゃ)": "冷（つめ）たい麦茶（むぎちゃ）！ごくごく飲（の）むとスッキリするね！何個（なんこ）にする？",
+    "コーヒー": "コーヒー！ちょっぴり大人（おとな）の味（あじ）かな？何個（なんこ）買（か）う？",
+    "ソーダ": "シュワシュワのソーダ！爽（さわ）やかでおいしそう〜！何個（なんこ）にする？",
+    "メロンパン": "サクサクふわふわのメロンパン！甘（あま）くておいしいよねっ！何個（なんこ）買（か）う？",
+    "クリームパン": "とろ〜りクリームパン！甘（あま）いクリームがたっぷりだね♪",
+    "焼(や)きそばパン": "焼（や）きそばパン！ボリューム満点（まんてん）でお腹（なか）いっぱいになりそう！",
+    "チョコデニッシュ": "チョコデニッシュ！サクサク生地（きじ）とチョコが最高（さいこう）だね！",
+    "雑誌(ざっし)": "雑誌（ざっし）！どんな特集（とくしゅう）が載（の）ってるかワクワクするねっ！"
+  };
+
+  // 売り場コーナーごとのここあのメッセージ
+  const CORNER_COCOA_MESSAGES = {
+    "野菜（やさい）": "野菜（やさい）コーナーだよ！新鮮（しんせん）な野菜（やさい）や果物（くだもの）がいっぱいあるね〜！",
+    "お肉(にく)": "お肉（にく）コーナーだよ！今日（きょう）は焼肉（やきにく）かなぁ？えへへ♪",
+    "お菓子(かし)": "お菓子（かし）コーナーだよ！おいしそうなおやつがたくさんで目移（めうつ）りしちゃう！",
+    "惣菜(そうざい)": "お惣菜（そうざい）コーナーだよ！唐揚（からあ）げやコロッケのいい匂（にお）いがしそう〜！",
+    "お弁当(べんとう)": "お弁当（べんとう）コーナーだよ！どれにしようか迷（まよ）っちゃうねっ！",
+    "飲(の)み物(もの)": "飲み物（のみもの）コーナーだよ！冷（つめ）たいジュースやお茶（ちゃ）があるよ♪",
+    "パン": "パンコーナーだよ！ふわふわで甘（あま）いパン、おいしそうだね〜！",
+    "漫画(まんが)・雑誌(ざっし)": "本（ほん）・雑誌（ざっし）コーナーだよ！楽（たの）しそうな本（ほん）はあるかな？"
+  };
+
+  // ここあのおしゃべり＆表情切り替え
+  function speakLovot(htmlText, duration = 4500, pose = 'normal') {
+    const bubble = document.getElementById("lovotSpeechBubble");
+    const textEl = document.getElementById("lovotSpeechText");
+    const imgEl = document.getElementById("lovotAvatarImg");
+    if (!bubble || !textEl) return;
+
+    textEl.innerHTML = parseRuby(htmlText);
+    bubble.classList.add("show");
+
+    // 表情をポーズに応じて切り替え
+    if (imgEl && LOVOT_IMAGES[pose]) {
+      imgEl.dataset.triedFallback = "false";
+      imgEl.onerror = () => handleLovotImgError(imgEl, pose);
+      imgEl.src = LOVOT_IMAGES[pose];
+    }
+
+    if (lovotBubbleTimer) clearTimeout(lovotBubbleTimer);
+    if (lovotPoseTimer) clearTimeout(lovotPoseTimer);
+
+    lovotBubbleTimer = setTimeout(() => {
+      bubble.classList.remove("show");
+    }, duration);
+
+    // セリフ終了後に優しい表情（normal）へ自然に戻す
+    lovotPoseTimer = setTimeout(() => {
+      if (imgEl) {
+        imgEl.dataset.triedFallback = "false";
+        imgEl.onerror = () => handleLovotImgError(imgEl, 'normal');
+        imgEl.src = LOVOT_IMAGES.normal;
+      }
+    }, duration + 500);
+  }
+
+  // ここあをタッチした時のリアクション（画面とモードに応じた会話変化）
+  function onTapLovot() {
+    const wrap = document.getElementById("lovotAvatarWrap");
+    if (wrap) {
+      wrap.classList.remove("bouncing");
+      void wrap.offsetWidth; // リフロー
+      wrap.classList.add("bouncing");
+    }
+    playLovotSound('talk');
+
+    // 現在のアクティブ画面とモードから台詞プールを決定
+    let pool = COCOA_DIALOGUES.easy;
+    let pose = 'happy';
+    const endlessScreen = document.getElementById("screenEndless");
+    const startScreen = document.getElementById("screenStart");
+    const resultScreen = document.getElementById("screenResult");
+
+    if (resultScreen && resultScreen.classList.contains("active")) {
+      // 会計後の結果画面での会話！
+      if (lastPaymentResult && lastPaymentResult.is_secret) {
+        pool = COCOA_DIALOGUES.post_checkout_secret;
+        pose = 'surprise';
+      } else if (lastPaymentResult && (lastPaymentResult.isExact || lastPaymentResult.isSingleCoin || (lastPaymentResult.diff === 0))) {
+        pool = COCOA_DIALOGUES.post_checkout_good;
+        pose = 'happy';
+      } else {
+        pool = COCOA_DIALOGUES.post_checkout_bad;
+        pose = 'teacher';
+      }
+    } else if (endlessScreen && endlessScreen.classList.contains("active")) {
+      pool = COCOA_DIALOGUES.endless;
+      pose = 'happy';
+    } else if (startScreen && startScreen.classList.contains("active")) {
+      pool = COCOA_DIALOGUES.title;
+      pose = 'happy';
+    } else if (currentPlayMode === 'normal') {
+      pool = COCOA_DIALOGUES.normal;
+      pose = 'happy';
+    } else {
+      pool = COCOA_DIALOGUES.easy;
+      pose = 'happy';
+    }
+
+    const randomMsg = pool[Math.floor(Math.random() * pool.length)];
+    speakLovot(randomMsg, 4500, pose);
+  }
+
+  // レジ画面でのここあヒント
+  function askLovotForHint() {
+    const total = getCartTotal();
+    const banner = document.getElementById("lovotCheckoutHintBanner");
+    const textEl = document.getElementById("lovotCheckoutHintText");
+    const imgEl = document.getElementById("lovotHintBannerImg");
+    if (!banner || !textEl) return;
+
+    if (total === 0) {
+      textEl.innerHTML = parseRuby("カゴに商品（しょうひん）を入（い）れてからヒントを聞（き）いてね！");
+      banner.classList.add("show");
+      speakLovot("カゴに商品（しょうひん）を入（い）れてからヒントを聞（き）いてね！", 3500, 'normal');
+      playLovotSound('talk');
+      return;
+    }
+
+    playLovotSound('hint');
+    if (imgEl) imgEl.src = LOVOT_IMAGES.teacher;
+    speakLovot("ここあが神払（かみばら）いのヒントを教（おし）えちゃうよぉ！まかせてっ！🎓✨", 4000, 'teacher');
+
+    // 最適解（神払い）を計算
+    const { bestTray } = solveOptimalPayment(total, initialWallet);
+    const optimalPayAmount = DENOMINATIONS.reduce((sum, d) => sum + d * (bestTray[d] || 0), 0);
+    const change = optimalPayAmount - total;
+    const { pieces: changePieces } = calcChangeBreakdown(change);
+
+    let hintHtml = "";
+    if (change === 0) {
+      // ぴったり払える場合
+      const coinsText = Object.entries(bestTray)
+        .filter(([d, c]) => c > 0)
+        .map(([d, c]) => `${d}円（えん）を${c}枚（まい）`)
+        .join("、");
+      hintHtml = `💡 お財布（さいふ）の小銭（こぜに）で<strong>ちょうど${total}円（えん）</strong>ぴったり払（はら）えるよ！<br>（ヒント：${coinsText}を出（だ）してみてね！）`;
+    } else if (changePieces === 1 && COIN_DENOMINATIONS.includes(change)) {
+      // 硬貨1枚お釣りになる場合
+      hintHtml = `💡 <strong>${optimalPayAmount}円（えん）</strong>出（だ）すと、お釣（つ）りが<strong>${change}円玉（えんだま）1枚（まい）</strong>だけでスッキリ返（かえ）ってくるよ！試（ため）してみてね！`;
+    } else {
+      hintHtml = `💡 <strong>${optimalPayAmount}円（えん）</strong>出（だ）すと、お釣（つ）りがたったの${change}円（えん）で、小銭（こぜに）が一番（いちばん）減（へ）ってスッキリするよ！`;
+    }
+
+    textEl.innerHTML = parseRuby(hintHtml);
+    banner.classList.add("show");
+  }
+
+  function closeLovotHint() {
+    const banner = document.getElementById("lovotCheckoutHintBanner");
+    if (banner) banner.classList.remove("show");
+  }
+
+  const DENOMINATIONS = [10000, 5000, 1000, 500, 100, 50, 10, 5, 1];
+  // 硬貨の額面一覧（1000円未満の硬貨のみ）
+  const COIN_DENOMINATIONS = [500, 100, 50, 10, 5, 1];
+
+  // ゲーム状態
+  let currentPlayMode = 'easy'; // 'easy'（かんたんモード）または 'normal'（つうじょうモード）
+  let initialWallet = {};
+  let currentWallet = {};
+  let payTray = {};
+  let cart = []; // [{name, price, count}]
+  let currentShop = "スーパーマーケット";
+  let currentCorner = "野菜（やさい）";
+  let hasPaidThisCart = false; // お買い物で支払い済みか判定するフラグ
+
+  // プレイ中モードバッジの更新
+  function updatePlayModeBadges() {
+    const isEasy = currentPlayMode === 'easy';
+    const label = isEasy ? '🔰 かんたん' : '🛒 つうじょう';
+    const cls = isEasy ? 'play-mode-pill easy' : 'play-mode-pill normal';
+
+    ['marketModeBadge', 'checkoutModeBadge', 'resultModeBadge'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.className = cls;
+        el.textContent = label;
+      }
+    });
+  }
+
+  // ルビ変換
+  function parseRuby(str) {
+    if (!str) return '';
+    return str.replace(/([一-龥々ヶ〆]+)[（\(]([^）\)]+)[）\)]/g, '<ruby>$1<rt>$2</rt></ruby>');
+  }
+
+  // 画面切り替え
+  function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
+  }
+
+  // 指数減衰による重み付きランダム抽選（所持金生成）
+  function getRandomPieces(denom) {
+    const decayRates = {
+      10000: 0.15,
+      5000:  0.25,
+      1000:  0.55,
+      500:   0.55,
+      100:   0.75,
+      50:    0.60,
+      10:    0.80,
+      5:     0.65,
+      1:     0.82
+    };
+    const r = decayRates[denom] || 0.7;
+    const minCount = denom === 1000 ? 1 : 0;
+    const maxCount = 15;
+
+    const counts = [];
+    const weights = [];
+    for (let k = minCount; k <= maxCount; k++) {
+      counts.push(k);
+      weights.push(Math.pow(r, k - minCount));
+    }
+
+    const totalWeight = weights.reduce((a, b) => a + b, 0);
+    let rand = Math.random() * totalWeight;
+    for (let i = 0; i < counts.length; i++) {
+      if (rand < weights[i]) return counts[i];
+      rand -= weights[i];
+    }
+    return counts[0];
+  }
+
+  function getMoneyClass(denom) {
+    if (denom >= 1000) return `bill-${denom}`;
+    return `coin-${denom}`;
+  }
+
+  function getWalletTotal(w) {
+    return DENOMINATIONS.reduce((sum, d) => sum + d * (w[d] || 0), 0);
+  }
+
+  function getCartTotal() {
+    return cart.reduce((sum, item) => sum + item.price * item.count, 0);
+  }
+
+  function getCartItemCount() {
+    return cart.reduce((sum, item) => sum + item.count, 0);
+  }
+
+  // ----------------------------------------------------
+  // ステップ0: お財布の生成と表示（かんたん・通常モード対応）
+  // ----------------------------------------------------
+  function startNewWalletAndGo(mode = 'easy') {
+    currentPlayMode = mode;
+    updatePlayModeBadges();
+    closeLovotHint();
+
+    initialWallet = {};
+    payTray = {};
+    DENOMINATIONS.forEach(d => {
+      initialWallet[d] = getRandomPieces(d);
+      payTray[d] = 0;
+    });
+    currentWallet = { ...initialWallet };
+    cart = [];
+    hasPaidThisCart = false;
+
+    const total = getWalletTotal(initialWallet);
+    document.getElementById("initTotalMoney").textContent = total.toLocaleString();
+
+    const grid = document.getElementById("initWalletGrid");
+    grid.innerHTML = "";
+    DENOMINATIONS.forEach(d => {
+      if (initialWallet[d] > 0) {
+        const cell = document.createElement("div");
+        cell.className = "wallet-coin-cell";
+        const visualLabel = d >= 1000
+          ? (d === 10000 ? '<ruby>一万円<rt>いちまんえん</rt></ruby>' : (d / 1000) + '<ruby>千円<rt>せんえん</rt></ruby>')
+          : d + '<ruby>円<rt>えん</rt></ruby>';
+        cell.innerHTML = `
+          <div class="visual-money ${getMoneyClass(d)}">${visualLabel}</div>
+          <div class="count-badge">${initialWallet[d]}<ruby>枚<rt>まい</rt></ruby></div>
+        `;
+        grid.appendChild(cell);
+      }
+    });
+
+    // LOVOT「ここあ」からの開始挨拶
+    if (currentPlayMode === 'easy') {
+      speakLovot("🔰 かんたんモードへようこそ！ぴったり払（はら）うか、お釣（つ）り1枚（まい）を目指（めざ）そうね！えへへ、いっしょにがんばろうね♪", 5000, 'happy');
+    } else {
+      speakLovot("🛒 つうじょうモードへようこそ！小銭（こぜに）を一番（いちばん）減（へ）らす神払（かみばら）いに挑戦（ちょうせん）だ！全力（ぜんりょく）で応援（おうえん）するねっ！", 5000, 'happy');
+    }
+
+    showScreen("screenWallet");
+  }
+
+  // ----------------------------------------------------
+  // ステップ1: お店選択へ
+  // ----------------------------------------------------
+  function goToShopSelect() {
+    showScreen("screenShopSelect");
+  }
+
+  function goToShopSelectKeepWallet() {
+    cart = [];
+    hasPaidThisCart = false;
+    showScreen("screenShopSelect");
+    speakLovot("お財布（さいふ）を持（も）ったまま次（つぎ）のお買（か）い物（もの）だね！何（なに）を買（か）うかワクワクするねっ！", 4500, 'happy');
+    playLovotSound('happy');
+  }
+
+  function chooseShop(shopName) {
+    currentShop = shopName;
+    currentCorner = Object.keys(SHOPS[shopName])[0];
+    cart = [];
+    enterMarket();
+    if (shopName === "スーパーマーケット") {
+      speakLovot("スーパーマーケットに到着（とうちゃく）！広（ひろ）い店内に商品がいっぱ〜い！何（なに）から買（か）う？", 4500, 'happy');
+    } else {
+      speakLovot("コンビニエンスストアに来（き）たよ！便利（べんり）なものがいっぱい揃（そろ）ってるねっ！", 4500, 'happy');
+    }
+    playLovotSound('happy');
+  }
+
+  // ----------------------------------------------------
+  // ステップ2: 売り場とお買い物
+  // ----------------------------------------------------
+  function enterMarket() {
+    const marketEl = document.getElementById("screenMarket");
+
+    // 一旦背景クラスを解除
+    marketEl.classList.remove("bg-supermarket", "bg-convenience");
+
+    // 選択されたお店に合わせて背景クラスを付与
+    if (currentShop === "スーパーマーケット") {
+      marketEl.classList.add("bg-supermarket");
+    } else if (currentShop === "コンビニエンスストア") {
+      marketEl.classList.add("bg-convenience");
+    }
+
+    document.getElementById("marketShopName").innerHTML = parseRuby(currentShop);
+    document.getElementById("marketWalletMoney").textContent = getWalletTotal(currentWallet).toLocaleString();
+    renderCornerTabs();
+    renderMarketItems();
+    updateCartBar();
+    showScreen("screenMarket");
+  }
+
+  function renderCornerTabs() {
+    const container = document.getElementById("marketCornerTabs");
+    container.innerHTML = "";
+    const corners = Object.keys(SHOPS[currentShop]);
+    corners.forEach(corner => {
+      const btn = document.createElement("button");
+      btn.className = `corner-tab-btn ${corner === currentCorner ? 'active' : ''}`;
+      btn.innerHTML = parseRuby(corner);
+      btn.onclick = () => {
+        currentCorner = corner;
+        renderCornerTabs();
+        renderMarketItems();
+        const msg = CORNER_COCOA_MESSAGES[corner] || `${corner}コーナーに来（き）たよ！何（なに）があるかな？`;
+        speakLovot(msg, 3500, 'normal');
+        playLovotSound('talk');
+      };
+      container.appendChild(btn);
+    });
+  }
+
+  function renderMarketItems() {
+    const grid = document.getElementById("marketItemsGrid");
+    grid.innerHTML = "";
+    const items = SHOPS[currentShop][currentCorner] || {};
+
+    Object.entries(items).forEach(([name, data]) => {
+      const price = typeof data === "object" ? data.price : data;
+      const imgUrl = typeof data === "object" ? data.img : "";
+
+      const card = document.createElement("div");
+      card.className = "item-card";
+      
+      card.innerHTML = `
+        ${imgUrl ? `<img src="${imgUrl}" class="item-img" alt="${name}">` : ''}
+        <div style="font-size:1.05rem; font-weight:bold;">${parseRuby(name)}</div>
+        <div style="color: #e65100; font-size:1.2rem; font-weight:bold;">${price}<ruby>円<rt>えん</rt></ruby></div>
+        <button class="btn btn-sm" onclick="addItemToCart('${name}', ${price})">
+          カゴに<ruby>入<rt>い</rt></ruby>れる
+        </button>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  // ----------------------------------------------------
+  // 個数指定でカゴに入れる（数量選択モーダル）
+  // ----------------------------------------------------
+  let pendingAddItem = null; // { name, price }
+
+  function addItemToCart(name, price) {
+    pendingAddItem = { name, price };
+    openQtyAddModal();
+    const comment = ITEM_COCOA_COMMENTS[name] || `「${name}」だね！何個（なんこ）買（か）うか決（き）めてね♪`;
+    speakLovot(comment, 4000, 'normal');
+    playLovotSound('talk');
+  }
+
+  function openQtyAddModal() {
+    if (!pendingAddItem) return;
+    document.getElementById("qtyAddItemName").innerHTML = parseRuby(pendingAddItem.name);
+    document.getElementById("qtyAddUnitPrice").textContent = pendingAddItem.price.toLocaleString();
+    document.getElementById("qtyAddInput").value = 1;
+    document.getElementById("qtyAddWarning").style.display = "none";
+    updateQtyAddPreview();
+    document.getElementById("qtyAddModal").style.display = "flex";
+  }
+
+  function closeQtyAddModal() {
+    document.getElementById("qtyAddModal").style.display = "none";
+    pendingAddItem = null;
+  }
+
+  function getQtyAddInputVal() {
+    let v = parseInt(document.getElementById("qtyAddInput").value, 10);
+    if (isNaN(v) || v < 1) v = 1;
+    return v;
+  }
+
+  function changeQtyAddCount(delta) {
+    let v = getQtyAddInputVal() + delta;
+    if (v < 1) v = 1;
+    document.getElementById("qtyAddInput").value = v;
+    updateQtyAddPreview();
+  }
+
+  function setQtyAddCount(v) {
+    document.getElementById("qtyAddInput").value = v;
+    updateQtyAddPreview();
+  }
+
+  function onQtyAddInputChange() {
+    updateQtyAddPreview();
+  }
+
+  function updateQtyAddPreview() {
+    if (!pendingAddItem) return;
+    const count = getQtyAddInputVal();
+    const total = pendingAddItem.price * count;
+    document.getElementById("qtyAddPricePreview").innerHTML =
+      `${pendingAddItem.price.toLocaleString()}<ruby>円<rt>えん</rt></ruby> × ${count}<ruby>個<rt>こ</rt></ruby> ＝ <strong>${total.toLocaleString()}<ruby>円<rt>えん</rt></ruby></strong>`;
+
+    const myMoney = getWalletTotal(initialWallet);
+    const otherItemsTotal = getCartTotal() - getExistingCartCount(pendingAddItem.name, pendingAddItem.price) * pendingAddItem.price;
+    const warningEl = document.getElementById("qtyAddWarning");
+    const btn = document.getElementById("btnConfirmAddToCart");
+
+    if (otherItemsTotal + total > myMoney) {
+      warningEl.style.display = "block";
+      warningEl.innerHTML = `<ruby>所持金<rt>しょじきん</rt></ruby>（${myMoney.toLocaleString()}<ruby>円<rt>えん</rt></ruby>）を<ruby>超<rt>こ</rt></ruby>える<ruby>個数<rt>こすう</rt></ruby>はカゴに<ruby>入<rt>い</rt></ruby>れられません`;
+      if (btn) btn.style.opacity = "0.5";
+      speakLovot("あわわ…！お財布（さいふ）のお金（かね）が足（た）りなくなっちゃうよぉ！", 3500, 'sad');
+      playLovotSound('sad');
+    } else {
+      warningEl.style.display = "none";
+      if (btn) btn.style.opacity = "1";
+
+      // 個数に応じたここあのリアクション変化
+      if (count === 1) {
+        speakLovot("1個（こ）だね！ちょうどいいかも♪", 2500, 'normal');
+      } else if (count >= 2 && count <= 4) {
+        speakLovot(`${count}個（こ）にするんだね！いっぱいでワクワクするねっ！`, 2500, 'happy');
+      } else if (count >= 5 && count <= 9) {
+        speakLovot(`${count}個（こ）も買（か）うの！？まとめ買（が）いだぁ〜！`, 3000, 'happy');
+      } else if (count >= 10) {
+        speakLovot(`うわぁ〜！${count}個（こ）も！？すごい大人買（おとなが）いだぁ！持（も）てるかなぁ？`, 3500, 'surprise');
+        playLovotSound('hint');
+      }
+    }
+  }
+
+  function getExistingCartCount(name, price) {
+    const existing = cart.find(i => i.name === name && i.price === price);
+    return existing ? existing.count : 0;
+  }
+
+  function confirmAddToCart() {
+    if (!pendingAddItem) return;
+    const count = getQtyAddInputVal();
+    const total = pendingAddItem.price * count;
+    const myMoney = getWalletTotal(initialWallet);
+    const otherItemsTotal = getCartTotal() - getExistingCartCount(pendingAddItem.name, pendingAddItem.price) * pendingAddItem.price;
+    if (otherItemsTotal + total > myMoney) {
+      return; // 所持金オーバーはブロック
+    }
+
+    const itemName = pendingAddItem.name;
+    const existing = cart.find(i => i.name === itemName && i.price === pendingAddItem.price);
+    if (existing) {
+      existing.count += count;
+    } else {
+      cart.push({ name: itemName, price: pendingAddItem.price, count: count });
+    }
+    playCoinSound();
+    playLovotSound('happy');
+    updateCartBar();
+    closeQtyAddModal();
+
+    if (count >= 10) {
+      speakLovot(`「${itemName}」を${count}個（こ）カゴに入（い）れたよ！重（おも）たいけどここあも持（も）つの手伝（てつだ）うねっ！`, 4000, 'surprise');
+    } else if (count >= 5) {
+      speakLovot(`「${itemName}」を${count}個（こ）カゴに入（い）れたよ！カゴがいっぱいで賑（にぎ）やかだねっ！`, 3500, 'happy');
+    } else {
+      speakLovot(`「${itemName}」をカゴに入（い）れたよ！お買（か）い物（もの）順調（じゅんちょう）だねっ！`, 3000, 'happy');
+    }
+  }
+
+  function updateCartBar() {
+    const total = getCartTotal();
+    document.getElementById("cartTotalPrice").textContent = total.toLocaleString();
+    document.getElementById("cartItemCount").textContent = getCartItemCount();
+  }
+
+  // カゴ確認モーダル（同一商品はまとめて表示）
+  function openCartModal() {
+    const list = document.getElementById("cartModalList");
+    list.innerHTML = "";
+    const total = getCartTotal();
+    const itemCount = getCartItemCount();
+
+    if (cart.length === 0) {
+      list.innerHTML = `<div style="color:#9e9e9e; text-align:center; padding:16px;">カゴは<ruby>空<rt>から</rt></ruby>っぽです。</div>`;
+      speakLovot("カゴはまだ空（から）っぽだよぉ。好（す）きな物（もの）を選（えら）んでカゴに入（い）れてみてね♪", 3500, 'normal');
+      playLovotSound('talk');
+    } else {
+      cart.forEach((item, idx) => {
+        const imgUrl = getItemImage(item.name);
+        const row = document.createElement("div");
+        row.className = "cart-list-item";
+        row.innerHTML = `
+          <div style="display:flex; align-items:center; gap:10px; flex:1;">
+            ${imgUrl ? `<img src="${imgUrl}" style="width:48px; height:48px; object-fit:contain; border-radius:6px; background:#f8f9fa; flex-shrink:0;">` : ''}
+            <div class="cart-item-info">
+              <div class="cart-item-name">${parseRuby(item.name)} × ${item.count}<ruby>個<rt>こ</rt></ruby></div>
+              <div class="cart-item-detail"><ruby>単価<rt>たんか</rt></ruby> ${item.price.toLocaleString()}<ruby>円<rt>えん</rt></ruby></div>
+            </div>
+          </div>
+          <div class="cart-item-actions">
+            <span class="cart-item-subtotal">${(item.price * item.count).toLocaleString()}<ruby>円<rt>えん</rt></ruby></span>
+            <button class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size:0.78rem;" onclick="removeOneFromCart(${idx})">-1<ruby>個<rt>こ</rt></ruby></button>
+            <button class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size:0.78rem;" onclick="openQtyReturnModal(${idx})"><ruby>個数指定<rt>こすうしてい</rt></ruby></button>
+            <button class="btn btn-secondary btn-sm" style="padding: 4px 8px; font-size:0.78rem;" onclick="removeAllFromCart(${idx})">ぜんぶ<ruby>戻<rt>もど</rt></ruby>す</button>
+          </div>
+        `;
+        list.appendChild(row);
+      });
+
+      const myMoney = getWalletTotal(initialWallet);
+      if (total > myMoney * 0.7) {
+        speakLovot(`カゴの確認（かくにん）だね！今（いま）${itemCount}個（こ）で${total}円（えん）だよ！所持金（しょじきん）に近（ちか）づいてきたよっ！`, 4000, 'teacher');
+      } else {
+        speakLovot(`カゴのチェックだね！今（いま）は全部（ぜんぶ）で${itemCount}個（こ）、合計（ごうけい）${total}円（えん）だよぉ♪`, 4000, 'teacher');
+      }
+      playLovotSound('talk');
+    }
+    document.getElementById("cartModalTotal").textContent = getCartTotal().toLocaleString();
+    document.getElementById("cartModal").style.display = "flex";
+  }
+
+  function removeOneFromCart(idx) {
+    const item = cart[idx];
+    if (!item) return;
+    const name = item.name;
+    item.count -= 1;
+    if (item.count <= 0) cart.splice(idx, 1);
+    updateCartBar();
+    openCartModal();
+    speakLovot(`「${name}」を1個（こ）棚（たな）に戻（もど）したよ！買（か）いすぎ防止（ぼうし）もバッチリだねっ！`, 3500, 'normal');
+    playLovotSound('talk');
+  }
+
+  function removeAllFromCart(idx) {
+    const item = cart[idx];
+    const name = item ? item.name : '商品（しょうひん）';
+    cart.splice(idx, 1);
+    updateCartBar();
+    openCartModal();
+    speakLovot(`「${name}」をぜんぶ棚（たな）に戻（もど）したよ！別（べつ）のものを見（み）てみようか♪`, 3500, 'normal');
+    playLovotSound('talk');
+  }
+
+  function closeCartModal() {
+    document.getElementById("cartModal").style.display = "none";
+  }
+
+  // ----------------------------------------------------
+  // 個数を指定してカゴから棚に戻す（数量選択モーダル）
+  // ----------------------------------------------------
+  let pendingReturnIdx = null;
+
+  function openQtyReturnModal(idx) {
+    pendingReturnIdx = idx;
+    const item = cart[idx];
+    if (!item) return;
+    document.getElementById("qtyReturnItemName").innerHTML = parseRuby(item.name);
+    document.getElementById("qtyReturnCurrentCount").textContent = item.count;
+    document.getElementById("qtyReturnInput").value = 1;
+    updateQtyReturnPreview();
+    document.getElementById("qtyReturnModal").style.display = "flex";
+  }
+
+  function closeQtyReturnModal() {
+    document.getElementById("qtyReturnModal").style.display = "none";
+    pendingReturnIdx = null;
+  }
+
+  function getQtyReturnInputVal() {
+    const item = cart[pendingReturnIdx];
+    const max = item ? item.count : 1;
+    let v = parseInt(document.getElementById("qtyReturnInput").value, 10);
+    if (isNaN(v) || v < 1) v = 1;
+    if (v > max) v = max;
+    return v;
+  }
+
+  function changeQtyReturnCount(delta) {
+    const item = cart[pendingReturnIdx];
+    const max = item ? item.count : 1;
+    let v = getQtyReturnInputVal() + delta;
+    if (v < 1) v = 1;
+    if (v > max) v = max;
+    document.getElementById("qtyReturnInput").value = v;
+    updateQtyReturnPreview();
+  }
+
+  function setQtyReturnToMax() {
+    const item = cart[pendingReturnIdx];
+    if (!item) return;
+    document.getElementById("qtyReturnInput").value = item.count;
+    updateQtyReturnPreview();
+  }
+
+  function onQtyReturnInputChange() {
+    updateQtyReturnPreview();
+  }
+
+  function updateQtyReturnPreview() {
+    const item = cart[pendingReturnIdx];
+    if (!item) return;
+    const count = getQtyReturnInputVal();
+    document.getElementById("qtyReturnPricePreview").innerHTML =
+      `${item.price.toLocaleString()}<ruby>円<rt>えん</rt></ruby> × ${count}<ruby>個<rt>こ</rt></ruby> ＝ <strong>${(item.price * count).toLocaleString()}<ruby>円<rt>えん</rt></ruby></strong> ぶんを<ruby>棚<rt>たな</rt></ruby>に<ruby>戻<rt>もど</rt></ruby>します`;
+  }
+
+  function confirmReturnFromCart() {
+    const item = cart[pendingReturnIdx];
+    if (!item) return;
+    const name = item.name;
+    const count = getQtyReturnInputVal();
+    item.count -= count;
+    if (item.count <= 0) cart.splice(pendingReturnIdx, 1);
+    updateCartBar();
+    closeQtyReturnModal();
+    openCartModal();
+    speakLovot(`「${name}」を${count}個（こ）棚（たな）に戻（もど）したよ！お財布（さいふ）に余裕（よゆう）ができたね♪`, 3500, 'normal');
+    playLovotSound('talk');
+  }
+
+  // ----------------------------------------------------
+  // ステップ3: お会計へ
+  // ----------------------------------------------------
+  function goToCheckout() {
+    const total = getCartTotal();
+    if (total === 0) {
+      alert("カゴに商品を入れてからレジに向かってね！");
+      speakLovot("カゴが空（から）っぽだよぉ！商品（しょうひん）を選（えら）んでからレジにいこうね！", 3500, 'sad');
+      return;
+    }
+    const myMoney = getWalletTotal(initialWallet);
+    if (total > myMoney) {
+      alert(`お金が足りません！\n合計: ${total}円 / 所持金: ${myMoney}円\n商品をいくつか棚に戻してください。`);
+      speakLovot("あわわ…！お金（かね）が足りないよぉ！いくつか棚（たな）に戻（もど）してね！", 4000, 'sad');
+      return;
+    }
+
+    resetTray(true);
+    showScreen("screenCheckout");
+    speakLovot(`レジに到着（とうちゃく）！合計（ごうけい）は${total}円（えん）だよぉ！どうやって払（はら）うか考（かんが）えようねっ！`, 4500, 'teacher');
+    playLovotSound('talk');
+  }
+
+  function renderCheckout() {
+    const total = getCartTotal();
+    const payAmount = DENOMINATIONS.reduce((sum, d) => sum + d * payTray[d], 0);
+    const diff = total - payAmount;
+
+    document.getElementById("checkoutTotalPrice").innerHTML = `${total.toLocaleString()}<span style="font-size:1rem;"><ruby>円<rt>えん</rt></ruby></span>`;
+    document.getElementById("checkoutPayAmount").innerHTML = `${payAmount.toLocaleString()}<span style="font-size:1rem;"><ruby>円<rt>えん</rt></ruby></span>`;
+
+    const diffLabel = document.getElementById("checkoutDiffLabel");
+    const diffVal = document.getElementById("checkoutDiffVal");
+
+    if (diff > 0) {
+      diffLabel.innerHTML = `<ruby>不足<rt>ふそく</rt></ruby>`;
+      diffVal.className = "reg-val diff";
+      diffVal.innerHTML = `${diff.toLocaleString()}<span style="font-size:1rem;"><ruby>円<rt>えん</rt></ruby></span>`;
+      document.getElementById("btnSubmitPayment").style.opacity = "0.6";
+    } else {
+      diffLabel.innerHTML = `お<ruby>釣<rt>つ</rt></ruby>り`;
+      diffVal.className = "reg-val pay";
+      diffVal.innerHTML = `${Math.abs(diff).toLocaleString()}<span style="font-size:1rem;"><ruby>円<rt>えん</rt></ruby></span>`;
+      document.getElementById("btnSubmitPayment").style.opacity = "1";
+    }
+
+    // レジのトレー描画
+    const trayContainer = document.getElementById("checkoutTrayContainer");
+    trayContainer.innerHTML = "";
+    let hasTray = false;
+    DENOMINATIONS.forEach(d => {
+      if (payTray[d] > 0) {
+        hasTray = true;
+        const chip = document.createElement("div");
+        chip.className = "tray-chip";
+        chip.title = "タップでお財布に戻す";
+        const visualLabel = d >= 1000
+          ? (d === 10000 ? '1<ruby>万円<rt>まんえん</rt></ruby>' : (d / 1000) + '<ruby>千円<rt>せんえん</rt></ruby>')
+          : d + '<ruby>円<rt>えん</rt></ruby>';
+        chip.innerHTML = `
+          <div class="visual-money ${getMoneyClass(d)}" style="transform:scale(0.75);">${visualLabel}</div>
+          <span>× ${payTray[d]}<ruby>枚<rt>まい</rt></ruby></span>
+        `;
+        chip.onclick = () => returnCoin(d);
+        trayContainer.appendChild(chip);
+      }
+    });
+    if (!hasTray) {
+      trayContainer.innerHTML = `<span style="color:#80cbc4; font-size:0.9rem;">お<ruby>財布<rt>さいふ</rt></ruby>のお<ruby>金<rt>かね</rt></ruby>をタップして<ruby>出<rt>だ</rt></ruby>してください</span>`;
+    }
+
+    // お財布描画
+    const walletGrid = document.getElementById("checkoutWalletGrid");
+    walletGrid.innerHTML = "";
+    DENOMINATIONS.forEach(d => {
+      const count = currentWallet[d] || 0;
+      const card = document.createElement("div");
+      card.className = `interactive-money-card ${count === 0 ? 'empty' : ''}`;
+      const visualLabel = d >= 1000
+        ? (d === 10000 ? '<ruby>一万円<rt>いちまんえん</rt></ruby>' : (d / 1000) + '<ruby>千円<rt>せんえん</rt></ruby>')
+        : d + '<ruby>円<rt>えん</rt></ruby>';
+      card.innerHTML = `
+        <div class="visual-money ${getMoneyClass(d)}">${visualLabel}</div>
+        <div class="count-badge">${count}<ruby>枚<rt>まい</rt></ruby></div>
+      `;
+      if (count > 0) {
+        card.onclick = () => putCoin(d);
+      }
+      walletGrid.appendChild(card);
+    });
+  }
+
+  function putCoin(denom) {
+    if (currentWallet[denom] > 0) {
+      currentWallet[denom]--;
+      payTray[denom]++;
+      playCoinSound();
+      renderCheckout();
+
+      // ここあの支払いリアクション
+      const total = getCartTotal();
+      const currentPay = DENOMINATIONS.reduce((sum, d) => sum + d * payTray[d], 0);
+      const diff = currentPay - total;
+
+      if (diff === 0) {
+        // ぴったり！
+        speakLovot("わぁっ！ぴったりちょうどの金額（きんがく）になったよぉ！！大（だい）チャンス！🎉", 4000, 'happy');
+        playLovotSound('happy');
+      } else if (diff > 0) {
+        // お釣りが発生
+        const { pieces: changePieces } = calcChangeBreakdown(diff);
+        if (changePieces === 1 && COIN_DENOMINATIONS.includes(diff)) {
+          speakLovot(`あっ！お釣（つ）りが${diff}円玉（えんだま）1枚（まい）になったよ！これすごくいい感（かん）じ！！✨`, 4000, 'happy');
+          playLovotSound('happy');
+        } else if (diff >= 1000) {
+          speakLovot("お札（さつ）のお釣（つ）りが出（で）ちゃいそうだよぉ。もっと小（ちい）さいお金（かね）を出（だ）せるかな？", 3500, 'sad');
+          playLovotSound('sad');
+        } else {
+          speakLovot(`${denom >= 1000 ? (denom === 10000 ? '一万円札（いちまんえんさつ）' : (denom/1000)+'千円札（せんえんさつ）') : denom+'円玉（えんだま）'}を出（だ）したよ！合計（ごうけい）${currentPay}円（えん）出（だ）してるよ！`, 3000, 'normal');
+        }
+      } else {
+        // まだ不足
+        const remaining = total - currentPay;
+        if (denom >= 10000) {
+          speakLovot("一万円札（いちまんえんさつ）！大（おお）きなお札（さつ）を出（だ）したねっ！", 3000, 'surprise');
+        } else if (denom >= 1000) {
+          speakLovot(`${denom/1000}千円札（せんえんさつ）を出（だ）したよ！あと${remaining}円（えん）だね！`, 3000, 'normal');
+        } else {
+          speakLovot(`${denom}円玉（えんだま）を出（だ）したよ！あと${remaining}円（えん）だよ！`, 3000, 'normal');
+        }
+      }
+    }
+  }
+
+  function returnCoin(denom) {
+    if (payTray[denom] > 0) {
+      payTray[denom]--;
+      currentWallet[denom]++;
+      playCoinSound();
+      renderCheckout();
+      speakLovot(`${denom >= 1000 ? (denom === 10000 ? '一万円札（いちまんえんさつ）' : (denom/1000)+'千円札（せんえんさつ）') : denom+'円玉（えんだま）'}をお財布（さいふ）に戻（もど）したよ！別（べつ）の出（だ）し方（かた）を試（ため）そうね！`, 3000, 'normal');
+    }
+  }
+
+  function resetTray(isQuiet = false) {
+    DENOMINATIONS.forEach(d => {
+      currentWallet[d] += payTray[d];
+      payTray[d] = 0;
+    });
+    renderCheckout();
+    if (!isQuiet) {
+      speakLovot("トレーのお金（かね）を全部（ぜんぶ）戻（もど）したよ！もう一回（いっかい）ゆっくり考（かんが）えてみようっ！", 3500, 'normal');
+      playLovotSound('talk');
+    }
+  }
+
+  // お釣りの内訳と枚数計算（貪欲法）
+  function calcChangeBreakdown(change) {
+    const breakdown = {};
+    let pieces = 0;
+    let temp = change;
+    for (const d of DENOMINATIONS) {
+      const count = Math.floor(temp / d);
+      if (count > 0) {
+        breakdown[d] = count;
+        pieces += count;
+      }
+      temp %= d;
+    }
+    return { pieces, breakdown };
+  }
+
+  // 最適支払い探索（内訳も記録して返す）
+  function solveOptimalPayment(totalPrice, walletBefore) {
+    let bestFinalPieces = Infinity;
+    let bestTray = {};
+    const denomsAvail = DENOMINATIONS.filter(d => walletBefore[d] > 0);
+    const initialPieceCount = Object.values(walletBefore).reduce((a, b) => a + b, 0);
+    const chosen = {};
+
+    function search(idx, currentPay, currentPieces) {
+      if (idx === denomsAvail.length) {
+        if (currentPay >= totalPrice) {
+          const change = currentPay - totalPrice;
+          const { pieces: changePieces } = calcChangeBreakdown(change);
+          const finalPieces = initialPieceCount - currentPieces + changePieces;
+          if (finalPieces < bestFinalPieces) {
+            bestFinalPieces = finalPieces;
+            bestTray = { ...chosen };
+          }
+        }
+        return;
+      }
+
+      const d = denomsAvail[idx];
+      const maxCount = walletBefore[d];
+
+      for (let c = 0; c <= maxCount; c++) {
+        if (currentPay + d * (c - 1) >= totalPrice && c >= 1) {
+          break; // 枝刈り
+        }
+        chosen[d] = c;
+        search(idx + 1, currentPay + d * c, currentPieces + c);
+      }
+    }
+
+    search(0, 0, 0);
+    return { bestFinalPieces, bestTray };
+  }
+
+  // ★お会計の判定ロジック
+  // 500円までの硬貨1枚がお釣りで返ってくる場合（500円玉、100円玉、50円玉、10円玉、5円玉、1円玉のいずれか1枚）までは「いい（神払い賞・最高評価）」
+  // 1000円以上の札でお釣りが返ってくる場合（change >= 1000）は今まで通り「だめ（星2つ以下）」とする
+  function isSmartEquivalentPayment(total, userPayAmount, change, userChangePieces, diff) {
+    // 1. お釣りに1000円以上の札が含まれる場合（change >= 1000）は絶対にだめ（除外）
+    if (change >= 1000) return false;
+
+    // 2. お釣りがゼロ（ぴったり）
+    if (change === 0) return true;
+
+    // 3. ★お釣りが500円までの硬貨1枚だけ（500円玉、100円玉、50円玉、10円玉、5円玉、1円玉のいずれか1枚）なら神払い賞！
+    if (userChangePieces === 1 && COIN_DENOMINATIONS.includes(change)) {
+      return true;
+    }
+
+    // 4. お釣りに札が含まれず（change < 1000）、手持ち小銭削減が最善（diff === 0）かつお釣り硬貨が少ない（2枚以内）
+    if (diff === 0 && userChangePieces <= 2) {
+      return true;
+    }
+
+    // 5. 500円単位や100円単位の繰り上げでお釣りが硬貨2枚以内かつdiff<=1（札のお釣りはchange>=1000で除外済み）
+    const roundUnits = [500, 100];
+    for (const unit of roundUnits) {
+      const minCeil = Math.ceil(total / unit) * unit;
+      if (userPayAmount === minCeil && diff <= 1 && userChangePieces <= 2) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // お金の出し方リストのHTML生成（ルビ対応）
+  function createMoneyTagsHtml(tray) {
+    const tags = [];
+    DENOMINATIONS.forEach(d => {
+      if (tray[d] > 0) {
+        const name = d === 10000
+          ? '1<ruby>万円札<rt>まんえんさつ</rt></ruby>'
+          : (d === 1000 ? '<ruby>千円札<rt>せんえんさつ</rt></ruby>' : (d >= 1000 ? `${d/1000}<ruby>千円札<rt>せんえんさつ</rt></ruby>` : `${d}<ruby>円玉<rt>えんだま</rt></ruby>`));
+        tags.push(`<span class="mini-money-tag">${name} × ${tray[d]}<ruby>枚<rt>まい</rt></ruby></span>`);
+      }
+    });
+    return tags.length > 0 ? tags.join('') : '<span style="color:#9e9e9e;">なし</span>';
+  }
+
+  // お釣り内訳のテキスト生成（ルビ対応）
+  function createChangeBreakdownText(change) {
+    if (change === 0) return "なし（ちょうど！）";
+    const { breakdown } = calcChangeBreakdown(change);
+    const parts = [];
+    DENOMINATIONS.forEach(d => {
+      if (breakdown[d] > 0) {
+        const name = d === 10000
+          ? '1<ruby>万円札<rt>まんえんさつ</rt></ruby>'
+          : (d === 1000 ? '<ruby>千円札<rt>せんえんさつ</rt></ruby>' : (d >= 1000 ? `${d/1000}<ruby>千円札<rt>せんえんさつ</rt></ruby>` : `${d}<ruby>円玉<rt>えんだま</rt></ruby>`));
+        parts.push(`${name}×${breakdown[d]}<ruby>枚<rt>まい</rt></ruby>`);
+      }
+    });
+    return `${change}<ruby>円<rt>えん</rt></ruby> 【${parts.join(', ')}】`;
+  }
+
+  // 答えの表示・非表示切り替え
+  function toggleAnswer() {
+    const content = document.getElementById("answerContent");
+    const btn = document.getElementById("btnToggleAnswer");
+    if (content.style.display === "none" || content.style.display === "") {
+      content.style.display = "flex";
+      btn.innerHTML = `<ruby>答<rt>こた</rt></ruby>えをとじる ▲`;
+      playLovotSound('hint');
+      speakLovot("博士（はかせ）ここあが一番（いちばん）スッキリする神払（かみばら）いを教（おし）えちゃうよぉ！じっくり見（み）てみてねっ！🎓✨", 4500, 'teacher');
+    } else {
+      content.style.display = "none";
+      btn.innerHTML = `<ruby>答<rt>こた</rt></ruby>えをみる ▼`;
+    }
+  }
+
+  // お支払い実行
+  function submitPayment() {
+    const total = getCartTotal();
+    const userPayAmount = DENOMINATIONS.reduce((sum, d) => sum + d * payTray[d], 0);
+
+    if (userPayAmount < total) {
+      alert(`お金が ${total - userPayAmount}円 足りないよ！もっとお財布から出してね。`);
+      return;
+    }
+
+    const change = userPayAmount - total;
+    const initialPieceCount = Object.values(initialWallet).reduce((a, b) => a + b, 0);
+    const userPaidPieces = Object.values(payTray).reduce((a, b) => a + b, 0);
+    const { pieces: userChangePieces } = calcChangeBreakdown(change);
+    const userFinalPieces = initialPieceCount - userPaidPieces + userChangePieces;
+
+    // 最適解（答え）を計算
+    const { bestFinalPieces, bestTray } = solveOptimalPayment(total, initialWallet);
+    const optimalPayAmount = DENOMINATIONS.reduce((sum, d) => sum + d * (bestTray[d] || 0), 0);
+    const optimalChange = optimalPayAmount - total;
+    const diff = userFinalPieces - bestFinalPieces;
+
+    // ★硬貨1枚のお釣り（500, 100, 50, 10, 5, 1）なら神払い賞！札は金額がでかいから除外
+    const isSingleCoinChange = (userChangePieces === 1 && COIN_DENOMINATIONS.includes(change));
+    const isSmartEquivalent = isSmartEquivalentPayment(total, userPayAmount, change, userChangePieces, diff);
+
+    // 隠しランク・評価判定ロジック
+    const is_perfect_exact = (change === 0 && diff === 0);
+    const is_miracle_condense = (diff === 0 && isSingleCoinChange && userPaidPieces >= 3);
+    const is_secret_rank = is_perfect_exact || is_miracle_condense;
+
+    // 結果画面テキスト
+    const msg = document.getElementById("resultChangeMessage");
+    if (change > 0) {
+      msg.innerHTML = `お<ruby>釣<rt>つ</rt></ruby>りは <span style="font-size:1.45rem;">${change}<ruby>円<rt>えん</rt></ruby></span> です。シャリンシャリン！`;
+    } else {
+      msg.innerHTML = `ちょうどお<ruby>預<rt>あず</rt></ruby>かりします。シャリンシャリン！`;
+    }
+
+    const stars = document.getElementById("resultStars");
+    const title = document.getElementById("resultEvalTitle");
+    const desc = document.getElementById("resultEvalDesc");
+    const advice = document.getElementById("resultAdviceBox");
+    const box = document.getElementById("resultBox");
+    const badge = document.getElementById("resultSecretBadge");
+
+    // LOVOTリアクション設定用変数
+    let lovotPose = 'normal';
+    let lovotMsg = '';
+
+    if (is_secret_rank) {
+      playSecretSound();
+      stars.className = "result-stars secret-stars";
+      stars.innerHTML = "🌈★★★★👑";
+      if (box) box.classList.add("secret-box");
+      if (badge) {
+        badge.style.display = "inline-block";
+        badge.innerHTML = `✨ ！？ <ruby>伝説<rt>でんせつ</rt></ruby>のシークレット<ruby>神技<rt>かみわざ</rt></ruby> ！？ ✨`;
+      }
+      title.innerHTML = `いいね：<span class="rainbow-text">【<ruby>伝説<rt>でんせつ</rt></ruby>の<ruby>超<rt>ちょう</rt></ruby>・<ruby>神払<rt>かみばら</rt></ruby>いマスター！！】</span>`;
+      if (is_perfect_exact) {
+        desc.innerHTML = `🎉✨ <strong>お<ruby>釣<rt>つ</rt></ruby>りゼロのピッタリ<ruby>払<rt>はら</rt></ruby>い</strong>で、しかも<ruby>手持<rt>ても</rt></ruby>ちの<ruby>小銭<rt>こぜに</rt></ruby>が<ruby>一番<rt>いちばん</rt></ruby><ruby>減<rt>へ</rt></ruby>る<ruby>完全無欠<rt>かんぜんむけつ</rt></ruby>の<ruby>神技<rt>かみわざ</rt></ruby>です！<br>まさに<ruby>神<rt>かみ</rt></ruby>の<ruby>領域<rt>りょういき</rt></ruby>！<ruby>完璧<rt>かんぺき</rt></ruby>すぎます！！🏆`;
+      } else {
+        desc.innerHTML = `🎉✨ <ruby>手持<rt>ても</rt></ruby>ちの<ruby>小銭<rt>こぜに</rt></ruby>をまとめて<ruby>出<rt>だ</rt></ruby>して、<strong>お<ruby>釣<rt>つ</rt></ruby>りをたった1<ruby>枚<rt>まい</rt></ruby>に<ruby>集約<rt>しゅうやく</rt></ruby></strong>させた<ruby>究極<rt>きゅうきょく</rt></ruby>の<ruby>神技<rt>かみわざ</rt></ruby>！<br><ruby>小銭<rt>こぜに</rt></ruby>がギュッとまとまって、お<ruby>財布<rt>さいふ</rt></ruby>が<ruby>一気<rt>いっき</rt></ruby>に<ruby>軽<rt>かる</rt></ruby>くなりました！<ruby>大天才<rt>だいてんさい</rt></ruby>！！🏆`;
+      }
+      advice.style.display = "none";
+      lovotPose = 'surprise';
+      lovotMsg = "ええっ！？すごすぎるよぉ！！伝説（でんせつ）の神技（かみわざ）を達成（たっせい）しちゃった！！ここあ、鳥肌（とりはだ）立（た）っちゃったよ〜〜！！🌈✨";
+    } else {
+      if (box) box.classList.remove("secret-box");
+      if (badge) badge.style.display = "none";
+
+      if (currentPlayMode === 'easy') {
+        // ----------------------------------------------------
+        // 【かんたんモード判定】
+        // ----------------------------------------------------
+        if (change === 0) {
+          // ① ぴったり払えればどんな小銭の出し方でも無条件で合格（★★★ ぴったり賞）！
+          playLovotSound('happy');
+          stars.className = "result-stars";
+          stars.textContent = "★★★";
+          title.innerHTML = `いいね：★★★ ぴったり<ruby>賞<rt>しょう</rt></ruby>！`;
+          desc.innerHTML = `お<ruby>釣<rt>り</rt></ruby>ゼロ！<ruby>金額<rt>きんがく</rt></ruby>ぴったり<ruby>気持<rt>きも</rt></ruby>ちよく<ruby>払<rt>はら</rt></ruby>えました！スッキリお<ruby>見事<rt>みごと</rt></ruby>！🎉`;
+          advice.style.display = "none";
+          lovotPose = 'happy';
+          lovotMsg = "やったぁぁ！大成功（だいせいこう）！ぴったり気持（きも）ちよくお支払（しはら）いできたね！ここあも大興奮（だいこうふん）だよぉ！！✨👏";
+        } else if (isSingleCoinChange) {
+          // ② お釣りが500円以下の硬貨1枚（キリのいいお札出しも、綺麗な端数調整もすべてOK！）
+          playLovotSound('happy');
+          stars.className = "result-stars";
+          stars.textContent = "★★★";
+          title.innerHTML = `いいね：★★★ <ruby>神払<rt>かみばら</rt></ruby>い<ruby>賞<rt>しょう</rt></ruby>！`;
+          desc.innerHTML = `お<ruby>釣<rt>つ</rt></ruby>りが<ruby>硬貨<rt>こうか</rt></ruby>たった1<ruby>枚<rt>まい</rt></ruby>（${change}<ruby>円玉<rt>えんだま</rt></ruby>1<ruby>枚<rt>まい</rt></ruby>）でスッキリ！お<ruby>財布<rt>さいふ</rt></ruby>に<ruby>優<rt>やさ</rt></ruby>しいスマートな<ruby>神払<rt>かみばら</rt></ruby>いです！👏`;
+          advice.style.display = "none";
+          lovotPose = 'happy';
+          lovotMsg = "お釣（つ）りが硬貨（こうか）1枚（まい）だけでスッキリ！計算（けいさん）バッチリのスマートな神払（かみばら）いだね！えへへ、すご〜い！！✨👏";
+        } else if (change >= 1000) {
+          // 1000円以上のお札がお釣りで返ってくる場合（だめ判定）
+          playLovotSound('sad');
+          stars.className = "result-stars";
+          stars.textContent = "★☆☆";
+          title.innerHTML = `いいね：★☆☆ お札（さつ）のお釣（つ）りが出（で）ちゃった！`;
+          desc.innerHTML = `お<ruby>支払<rt>しはら</rt></ruby>いはできたけど、お<ruby>札<rt>さつ</rt></ruby>がお<ruby>釣<rt>つ</rt></ruby>りで<ruby>返<rt>かえ</rt></ruby>ってきちゃったよ！もっと<ruby>小<rt>ちい</rt></ruby>さなお<ruby>金<rt>かね</rt></ruby>で<ruby>払<rt>はら</rt></ruby>えるか<ruby>確<rt>たし</rt></ruby>かめてみよう！`;
+          advice.style.display = "block";
+          advice.innerHTML = `💡 <strong>ヒント：</strong><br><ruby>下<rt>した</rt></ruby>の「<ruby>答<rt>こた</rt></ruby>えをみる」で、スッキリする<ruby>出<rt>だ</rt></ruby>し<ruby>方<rt>かた</rt></ruby>を<ruby>確認<rt>かくにん</rt></ruby>してみてね！`;
+          lovotPose = 'sad';
+          lovotMsg = "お札（さつ）のお釣（つ）りが出（で）ちゃったねぇ。もっと小（ちい）さいお金（かね）を出（だ）してみよう！下（した）の『答（こた）えをみる』をチェックしてみてね！😊";
+        } else {
+          // 硬貨が2枚以上返ってくる場合（おしい）
+          playLovotSound('sad');
+          stars.className = "result-stars";
+          stars.textContent = "★★☆";
+          title.innerHTML = `いいね：★★☆ おしい！`;
+          desc.innerHTML = `お<ruby>支払<rt>しはら</rt></ruby>いはできたけど、お<ruby>釣<rt>つ</rt></ruby>りの<ruby>硬貨<rt>こうか</rt></ruby>が${userChangePieces}<ruby>枚<rt>まい</rt></ruby>に<ruby>増<rt>ふ</rt></ruby>えちゃったよ！あと<ruby>少<rt>すこ</rt></ruby>しで<ruby>硬貨<rt>こうか</rt></ruby>1<ruby>枚<rt>まい</rt></ruby>にできたかも？`;
+          advice.style.display = "block";
+          advice.innerHTML = `💡 <strong>ヒント：</strong><br><ruby>下<rt>した</rt></ruby>の「<ruby>答<rt>こた</rt></ruby>えをみる」で、お<ruby>釣<rt>つ</rt></ruby>りが1<ruby>枚<rt>まい</rt></ruby>になる<ruby>出<rt>だ</rt></ruby>し<ruby>方<rt>かた</rt></ruby>を<ruby>見<rt>み</rt></ruby>てみてね！`;
+          lovotPose = 'sad';
+          lovotMsg = "う〜ん、おしいよぉ！お釣（つ）りの小銭（こぜに）が少（すこ）し増（ふ）えちゃったね。下（した）の『答（こた）えをみる』で神払（かみばら）いをチェックしてみてね！💪";
+        }
+      } else {
+        // ----------------------------------------------------
+        // 【つうじょうモード判定（従来の本格判定）】
+        // ----------------------------------------------------
+        if (change === 0 && diff === 0) {
+          playSuccessSound();
+          playLovotSound('happy');
+          stars.className = "result-stars";
+          stars.textContent = "★★★";
+          title.innerHTML = `いいね：★★★ ぴったり<ruby>賞<rt>しょう</rt></ruby>！`;
+          desc.innerHTML = `お<ruby>釣<rt>つ</rt></ruby>りゼロ！しかも<ruby>小銭<rt>こぜに</rt></ruby>が<ruby>一番<rt>いちばん</rt></ruby><ruby>減<rt>へ</rt></ruby>るスッキリしたピッタリ<ruby>払<rt>はら</rt></ruby>いです！お<ruby>見事<rt>みごと</rt></ruby>！🎉`;
+          advice.style.display = "none";
+          lovotPose = 'happy';
+          lovotMsg = "やったぁぁ！大成功（だいせいこう）！小銭（こぜに）も一番（いちばん）減（へ）って完璧（かんぺき）なぴったり払（はら）いだね！大天才（だいてんさい）！！ここあ感動（かんどう）しちゃった！✨👏";
+        } else if (isSmartEquivalent) {
+          playSuccessSound();
+          playLovotSound('happy');
+          stars.className = "result-stars";
+          stars.textContent = "★★★";
+          title.innerHTML = `いいね：★★★ <ruby>神払<rt>かみばら</rt></ruby>い<ruby>賞<rt>しょう</rt></ruby>！`;
+          if (isSingleCoinChange) {
+            desc.innerHTML = `お<ruby>釣<rt>つ</rt></ruby>りが<ruby>硬貨<rt>こうか</rt></ruby>たった1<ruby>枚<rt>まい</rt></ruby>（${change}<ruby>円玉<rt>えんだま</rt></ruby>1<ruby>枚<rt>まい</rt></ruby>）でスッキリ！お<ruby>財布<rt>さいふ</rt></ruby>に<ruby>優<rt>やさ</rt></ruby>しいスマートな<ruby>神払<rt>かみばら</rt></ruby>いです！👏`;
+          } else {
+            desc.innerHTML = `お<ruby>釣<rt>つ</rt></ruby>りを<ruby>最小限<rt>さいしょうげん</rt></ruby>に<ruby>抑<rt>おさ</rt></ruby>える<ruby>神払<rt>かみばら</rt></ruby>い！レジ<ruby>打<rt>う</rt></ruby>ちのプロも<ruby>脱帽<rt>だつぼう</rt></ruby>の<ruby>素晴<rt>すば</rt></ruby>らしい<ruby>工夫<rt>くふう</rt></ruby>です！👏`;
+          }
+          advice.style.display = "none";
+          lovotPose = 'happy';
+          lovotMsg = "スッキリ神払（かみばら）い大成功（だいせいこう）！レジ打ちのプロ顔負（かおま）けの素晴らしい出し方だよぉ！えへへ、大拍手（だいはくしゅ）〜！！✨👏";
+        } else if (change === 0) {
+          // つうじょうモードでぴったりだが小銭を減らせる手が残っていた場合
+          playLovotSound('talk');
+          stars.className = "result-stars";
+          stars.textContent = "★★☆";
+          title.innerHTML = `いいね：★★☆ ぴったりだけどおしい！`;
+          desc.innerHTML = `お<ruby>釣<rt>つ</rt></ruby>りゼロで<ruby>払<rt>はら</rt></ruby>えたよ！でも、もう<ruby>少<rt>すこ</rt></ruby>し<ruby>小銭<rt>こぜに</rt></ruby>をたくさん<ruby>出<rt>だ</rt></ruby>せば、もっとお<ruby>財布<rt>さいふ</rt></ruby>をスッキリできたかも？👍`;
+          advice.style.display = "block";
+          advice.innerHTML = `💡 <strong>ヒント：</strong><br><ruby>下<rt>した</rt></ruby>の「<ruby>答<rt>こた</rt></ruby>えをみる」で、<ruby>小銭<rt>こぜに</rt></ruby>が<ruby>一番<rt>いちばん</rt></ruby><ruby>減<rt>へ</rt></ruby>る<ruby>出<rt>だ</rt></ruby>し<ruby>方<rt>かた</rt></ruby>を<ruby>確<rt>たし</rt></ruby>かめてみてね！`;
+          lovotPose = 'sad';
+          lovotMsg = "ぴったり払（はら）えたね！でも通常（つうじょう）モードでは、もっと小銭（こぜに）をたくさん出すともっとスッキリできたかも！答えを見てみてね！💪";
+        } else if (diff <= 2) {
+          playLovotSound('sad');
+          stars.className = "result-stars";
+          stars.textContent = "★★☆";
+          title.innerHTML = `いいね：★★☆ すごい！`;
+          desc.innerHTML = `とっても<ruby>上手<rt>じょうず</rt></ruby>なお<ruby>支払<rt>しはら</rt></ruby>い！でも、あと<ruby>少<rt>すこ</rt></ruby>し<ruby>工夫<rt>くふう</rt></ruby>すればもっと<ruby>小銭<rt>こぜに</rt></ruby>を<ruby>減<rt>へ</rt></ruby>らせたかも？👍`;
+          advice.style.display = "block";
+          advice.innerHTML = `💡 <strong>ヒント：</strong><br><ruby>下<rt>した</rt></ruby>の「<ruby>答<rt>こた</rt></ruby>えをみる」を<ruby>開<rt>ひら</rt></ruby>いて、<ruby>一番<rt>いちばん</rt></ruby>スッキリする<ruby>出<rt>だ</rt></ruby>し<ruby>方<rt>かた</rt></ruby>を<ruby>確<rt>たし</rt></ruby>かめてみてね！`;
+          lovotPose = 'sad';
+          lovotMsg = "おしい！あと一歩（いっぽ）で神払（かみばら）いだったよぉ！下（した）の答えを参考（さんこう）にして次（つぎ）こそ神払（かみばら）いキメようね！✨";
+        } else {
+          playLovotSound('sad');
+          stars.className = "result-stars";
+          stars.textContent = "★☆☆";
+          title.innerHTML = `いいね：★☆☆ おしい！`;
+          desc.innerHTML = `お<ruby>支払<rt>しはら</rt></ruby>いはできたけど、もっと<ruby>小銭<rt>こぜに</rt></ruby>を<ruby>減<rt>へ</rt></ruby>らせたよ！<ruby>次<rt>つぎ</rt></ruby>は<ruby>工夫<rt>くふう</rt></ruby>してみよう！💪`;
+          advice.style.display = "block";
+          advice.innerHTML = `💡 <strong>ヒント：</strong><br><ruby>大<rt>おお</rt></ruby>きなお<ruby>札<rt>さつ</rt></ruby>だけでなく、<ruby>端数<rt>はすう</rt></ruby>の<ruby>硬貨<rt>こうか</rt></ruby>を<ruby>一緒<rt>いっしょ</rt></ruby>に<ruby>出<rt>だ</rt></ruby>すと<ruby>小銭<rt>こぜに</rt></ruby>を<ruby>減<rt>へ</rt></ruby>らせます。<ruby>下<rt>した</rt></ruby>の「<ruby>答<rt>こた</rt></ruby>えをみる」で<ruby>答<rt>こた</rt></ruby>えを<ruby>確認<rt>かくにん</rt></ruby>しよう！`;
+          lovotPose = 'sad';
+          lovotMsg = "お支払（しはら）いはできたね！次（つぎ）は端数（はすう）の小銭（こぜに）も一緒（いっしょ）に出（だ）して、お釣（つ）りの小銭（こぜに）を減（へ）らしてみよう！応援（おうえん）してるよっ！😊";
+        }
+      }
+    }
+
+    // LOVOTリアクションカードの反映＆右下ここあのアバター連動
+    const lovotImgEl = document.getElementById("lovotResultImg");
+    const lovotMsgEl = document.getElementById("lovotResultMsg");
+    if (lovotImgEl) lovotImgEl.src = LOVOT_IMAGES[lovotPose] || LOVOT_IMAGES.normal;
+    if (lovotMsgEl) lovotMsgEl.innerHTML = parseRuby(lovotMsg);
+    speakLovot(lovotMsg, 6000, lovotPose);
+
+    // 答えエリアのセットアップ
+    document.getElementById("userPayTotal").textContent = userPayAmount.toLocaleString();
+    document.getElementById("userPayList").innerHTML = createMoneyTagsHtml(payTray);
+    document.getElementById("userChangeInfo").innerHTML = createChangeBreakdownText(change);
+
+    document.getElementById("optimalPayTotal").textContent = optimalPayAmount.toLocaleString();
+    document.getElementById("optimalPayList").innerHTML = createMoneyTagsHtml(bestTray);
+    document.getElementById("optimalChangeInfo").innerHTML = createChangeBreakdownText(optimalChange);
+
+    // 博士ここあの解説バナーへのメッセージ反映
+    const teacherSpeechEl = document.getElementById("teacherCocoaSpeechText");
+    let teacherMsg = "";
+    if (is_secret_rank) {
+      teacherMsg = "えへへ、すごすぎるよぉ！あなたが出（だ）したお支払（しはら）いはまさに伝説（でんせつ）の神技（かみわざ）！博士（はかせ）ここあも大拍手（だいはくしゅ）ですっ！🎓✨";
+    } else if (diff === 0) {
+      teacherMsg = "お見事（みごと）！あなたのお支払（しはら）いが一番（いちばん）小銭（こぜに）の減（へ）るスッキリ神払（かみばら）いだったよぉ！完璧（かんぺき）ですっ！🎓✨";
+    } else if (currentPlayMode === 'easy' && change === 0) {
+      teacherMsg = `ぴったり払（はら）い大成功（だいせいこう）！ちなみに、${optimalPayAmount}円出（えんだ）しにするともっと小銭（こぜに）を減（へ）らせるんだよ！右側（みぎがわ）の出し方（かた）もチェックしてみてねっ！🎓`;
+    } else if (isSingleCoinChange) {
+      teacherMsg = `硬貨（こうか）1枚（まい）のお釣りでスッキリ！さらに小銭（こぜに）を減（へ）らすなら、右側（みぎがわ）の${optimalPayAmount}円出（えんだ）しもおすすめだよっ！🎓`;
+    } else {
+      teacherMsg = `ここがポイントだよぉ！右側（みぎがわ）の神払（かみばら）いで払（はら）うと、お釣（つ）りがスッキリして、小銭（こぜに）が${diff}枚（まい）も少（すく）なくなるんだよ！次（つぎ）に試（ため）してみてねっ！🎓✨`;
+    }
+    if (teacherSpeechEl) {
+      teacherSpeechEl.innerHTML = parseRuby(teacherMsg);
+    }
+
+    // 会計結果を保持（会計後のおしゃべり連動用）
+    lastPaymentResult = {
+      is_secret: is_secret_rank,
+      change: change,
+      diff: diff,
+      isExact: (change === 0),
+      isSingleCoin: isSingleCoinChange,
+      isBillChange: (change >= 1000)
+    };
+
+    // 解説テキスト
+    const exp = document.getElementById("optimalExplanation");
+    if (is_secret_rank) {
+      exp.innerHTML = `🌈 <strong><ruby>伝説<rt>でんせつ</rt></ruby>のシークレット<ruby>達成<rt>たっせい</rt></ruby>！</strong> あなたが<ruby>出<rt>だ</rt></ruby>したお<ruby>支払<rt>しはら</rt></ruby>いは、まさに「<ruby>究極<rt>きゅうきょく</rt></ruby>の<ruby>神技<rt>かみわざ</rt></ruby>」でした！お<ruby>支払<rt>しはら</rt></ruby>い<ruby>後<rt>ご</rt></ruby>のお<ruby>財布<rt>さいふ</rt></ruby>の<ruby>枚数<rt>まいすう</rt></ruby>は <strong>${userFinalPieces}<ruby>枚<rt>まい</rt></ruby></strong> で<ruby>最小<rt>さいしょう</rt></ruby>となり、<ruby>完璧<rt>かんぺき</rt></ruby>な<ruby>出<rt>だ</rt></ruby>し<ruby>方<rt>かた</rt></ruby>です！`;
+      document.getElementById("answerContent").style.display = "flex";
+      document.getElementById("btnToggleAnswer").innerHTML = `<ruby>答<rt>こた</rt></ruby>えをとじる ▲`;
+    } else if (diff === 0) {
+      exp.innerHTML = `🎉 <strong>お<ruby>見事<rt>みごと</rt></ruby>！</strong> あなたが<ruby>出<rt>だ</rt></ruby>した<ruby>支払<rt>しはら</rt></ruby>い<ruby>方<rt>かた</rt></ruby>がまさに「<ruby>一番<rt>いちばん</rt></ruby>スッキリする<ruby>神払<rt>かみばら</rt></ruby>い」でした！お<ruby>支払<rt>しはら</rt></ruby>い<ruby>後<rt>ご</rt></ruby>のお<ruby>財布<rt>さいふ</rt></ruby>の<ruby>枚数<rt>まいすう</rt></ruby>は <strong>${userFinalPieces}<ruby>枚<rt>まい</rt></ruby></strong> で<ruby>最小<rt>さいしょう</rt></ruby>です！`;
+      document.getElementById("answerContent").style.display = "flex";
+      document.getElementById("btnToggleAnswer").innerHTML = `<ruby>答<rt>こた</rt></ruby>えをとじる ▲`;
+    } else if (currentPlayMode === 'easy' && change === 0) {
+      // かんたんモードでぴったり払ったが、さらに小銭を減らせる神払いがあった場合
+      exp.innerHTML = `🎉 <strong>お<ruby>見事<rt>みごと</rt></ruby>！ピッタリ<ruby>大成功<rt>だいせいこう</rt></ruby>！</strong><br>
+        お<ruby>釣<rt>つ</rt></ruby>りゼロでキレイに<ruby>払<rt>はら</rt></ruby>えました！<br>
+        <span style="color:#e65100; font-weight:bold;">💡 ちなみに…もっと<ruby>小銭<rt>こぜに</rt></ruby>を<ruby>減<rt>へ</rt></ruby>らせる<ruby>神払<rt>かみばら</rt></ruby>いは <strong>${optimalPayAmount}<ruby>円出<rt>えんだ</rt></ruby>し</strong> だよ！</span><br>
+        <span style="font-size:0.9rem; color:#546e7a;">（右の「一番スッキリする出し方」のように小銭を組み合わせると、お財布がさらにスッキリします！）</span>`;
+      document.getElementById("answerContent").style.display = "flex";
+      document.getElementById("btnToggleAnswer").innerHTML = `<ruby>答<rt>こた</rt></ruby>えをとじる ▲`;
+    } else if (isSingleCoinChange) {
+      exp.innerHTML = `🎉 <strong>お<ruby>見事<rt>みごと</rt></ruby>！<ruby>硬貨<rt>こうか</rt></ruby>1<ruby>枚<rt>まい</rt></ruby>のスマート<ruby>神払<rt>かみばら</rt></ruby>い！</strong><br>
+        お<ruby>釣<rt>つ</rt></ruby>りが<ruby>硬貨<rt>こうか</rt></ruby>たった1<ruby>枚<rt>まい</rt></ruby>（<strong>${createChangeBreakdownText(change)}</strong>）で、お<ruby>財布<rt>さいふ</rt></ruby>の<ruby>小銭<rt>こぜに</rt></ruby>がほとんど<ruby>増<rt>ふ</rt></ruby>えない<ruby>素晴<rt>すば</rt></ruby>らしい<ruby>出<rt>だ</rt></ruby>し<ruby>方<rt>かた</rt></ruby>です！<br>
+        <span style="font-size:0.88rem; color:#546e7a;">（※さらに<ruby>小銭<rt>こぜに</rt></ruby>を<ruby>減<rt>へ</rt></ruby>らすテクニックとして、<ruby>小銭<rt>こぜに</rt></ruby>を<ruby>一緒<rt>いっしょ</rt></ruby>に<ruby>出<rt>だ</rt></ruby>す「${optimalPayAmount}<ruby>円出<rt>えんだ</rt></ruby>し」もあります）</span>`;
+      document.getElementById("answerContent").style.display = "flex";
+      document.getElementById("btnToggleAnswer").innerHTML = `<ruby>答<rt>こた</rt></ruby>えをとじる ▲`;
+    } else {
+      exp.innerHTML = `💡 <strong>ここがポイント！</strong><br>
+        <ruby>神払<rt>かみばら</rt></ruby>いで<ruby>支払<rt>しはら</rt></ruby>うと、<ruby>合計<rt>ごうけい</rt></ruby>で <strong>${optimalPayAmount}<ruby>円<rt>えん</rt></ruby></strong> <ruby>出<rt>だ</rt></ruby>すことになります。<br>
+        こうするとお<ruby>釣<rt>つ</rt></ruby>りが <strong>${createChangeBreakdownText(optimalChange)}</strong> となり、あなたのお<ruby>支払<rt>しはら</rt></ruby>いよりも <strong>${diff}<ruby>枚<rt>まい</rt></ruby></strong> お<ruby>財布<rt>さいふ</rt></ruby>がスッキリ（<ruby>小銭<rt>こぜに</rt></ruby>が<ruby>少<rt>すく</rt></ruby>なく）なりました！`;
+      document.getElementById("answerContent").style.display = "none";
+      document.getElementById("btnToggleAnswer").innerHTML = `<ruby>答<rt>こた</rt></ruby>えをみる ▼`;
+    }
+
+    if (!hasPaidThisCart) {
+      recordPaymentAndCheckTitle(change === 0, is_secret_rank);
+      hasPaidThisCart = true; // 一度支払ったらtrueにして二度目はカウントしない
+    }
+
+    // お買い上げ画面に商品画像を一覧表示する処理
+    const resultItemsList = document.getElementById("resultItemsList");
+    if (resultItemsList) {
+      resultItemsList.innerHTML = "";
+      cart.forEach(item => {
+        const imgUrl = getItemImage(item.name);
+        const div = document.createElement("div");
+        div.style = "background:#fafafa; border:1px solid #e0e0e0; border-radius:8px; padding:6px 10px; display:flex; align-items:center; gap:8px; font-size:0.9rem;";
+        div.innerHTML = `
+          ${imgUrl ? `<img src="${imgUrl}" style="width:36px; height:36px; object-fit:contain;">` : ''}
+          <span><strong>${parseRuby(item.name)}</strong> × ${item.count}<ruby>個<rt>こ</rt></ruby></span>
+        `;
+        resultItemsList.appendChild(div);
+      });
+    }
+
+    showScreen("screenResult");
+  }
+
+  function restartSameWallet() {
+    resetTray(true);
+    showScreen("screenCheckout");
+    speakLovot("もう一回（いっかい）チャレンジだね！今度（こんど）はもっとスッキリ神払（かみばら）い目指（めざ）そうねっ！", 4500, 'happy');
+    playLovotSound('talk');
+  }
+
+  // ====================================================
+  // エンドレスモード（60秒タイムアタック＆ハイスコア）
+  // ====================================================
+
+  function updateStartScreenHighScore() {
+    const hs = loadStats().highScore;
+    const el = document.getElementById("startHighScoreVal");
+    if (el) el.textContent = hs.toLocaleString();
+  }
+
+  // エンドレスモード状態
+  let endlessTimeRemaining = 60;
+  const ENDLESS_BASE_TIME = 60;
+  let endlessTimerInterval = null;
+  let endlessScore = 0;
+  let endlessCombo = 0;
+  let endlessMaxCombo = 0;
+  let endlessProblemIndex = 0;
+  let endlessTotalSolved = 0;
+  let endlessStats = {
+    secret: 0,
+    bestPay: 0,
+    exactPay: 0,
+    great: 0,
+    close: 0
+  };
+  let endlessCurrentTargetPrice = 0;
+  let endlessWallet = {};
+  let endlessTray = {};
+  let endlessInitialWallet = {};
+  let endlessPopupTimer = null;
+  let endlessIsAdvancing = false;
+
+  // エンドレスモード開始
+  function startEndlessMode() {
+    endlessTimeRemaining = ENDLESS_BASE_TIME;
+    endlessScore = 0;
+    endlessCombo = 0;
+    endlessMaxCombo = 0;
+    endlessProblemIndex = 0;
+    endlessTotalSolved = 0;
+    endlessStats = { secret: 0, bestPay: 0, exactPay: 0, great: 0, close: 0 };
+    endlessIsAdvancing = false;
+
+    // UI初期化
+    updateEndlessStatsUI();
+    const popup = document.getElementById("endlessPopup");
+    if (popup) popup.classList.remove("show");
+
+    // 第1問生成
+    generateEndlessProblem();
+
+    // タイマースタート
+    if (endlessTimerInterval) clearInterval(endlessTimerInterval);
+    endlessTimerInterval = setInterval(tickEndlessTimer, 1000);
+
+    showScreen("screenEndless");
+    speakLovot("🔥 エンドレスモードスタート！素早（すばや）く計算（けいさん）してハイスコアを目指（めざ）そうねっ！ファイト〜！", 4500, 'happy');
+  }
+
+  // 1秒毎のタイマー処理
+  function tickEndlessTimer() {
+    endlessTimeRemaining--;
+    if (endlessTimeRemaining <= 0) {
+      endlessTimeRemaining = 0;
+      updateEndlessStatsUI();
+      endEndlessGame();
+      return;
+    }
+    updateEndlessStatsUI();
+  }
+
+  // ステータスUI更新（タイマー・スコア・コンボ）
+  function updateEndlessStatsUI() {
+    const timerText = document.getElementById("endlessTimerText");
+    const timerBox = document.getElementById("endlessTimerBox");
+    const timeBar = document.getElementById("endlessTimeBar");
+    const scoreVal = document.getElementById("endlessScoreVal");
+    const comboBadge = document.getElementById("endlessComboBadge");
+
+    if (timerText) timerText.textContent = endlessTimeRemaining;
+    if (scoreVal) scoreVal.textContent = endlessScore.toLocaleString();
+
+    // タイムバー（上限60秒基準、100%まで）
+    const pct = Math.min(100, Math.max(0, (endlessTimeRemaining / ENDLESS_BASE_TIME) * 100));
+    if (timeBar) {
+      timeBar.style.width = `${pct}%`;
+      if (endlessTimeRemaining <= 10) {
+        timeBar.classList.add("danger");
+      } else {
+        timeBar.classList.remove("danger");
+      }
+    }
+
+    if (timerBox) {
+      if (endlessTimeRemaining <= 10) {
+        timerBox.classList.add("danger");
+      } else {
+        timerBox.classList.remove("danger");
+      }
+    }
+
+    if (comboBadge) {
+      if (endlessCombo >= 2) {
+        comboBadge.style.display = "inline-block";
+        const multi = getComboMultiplier(endlessCombo);
+        comboBadge.innerHTML = `🔥 ${endlessCombo} <ruby>連続<rt>れんぞく</rt></ruby>！ (×${multi.toFixed(1)})`;
+      } else {
+        comboBadge.style.display = "none";
+      }
+    }
+  }
+
+  function getComboMultiplier(combo) {
+    if (combo >= 5) return 2.0;
+    if (combo >= 3) return 1.5;
+    if (combo >= 2) return 1.2;
+    return 1.0;
+  }
+
+  // ランダム問題の生成
+  function generateEndlessProblem() {
+    endlessProblemIndex++;
+    endlessIsAdvancing = false;
+    document.getElementById("endlessProblemBadge").innerHTML = `<ruby>第<rt>だい</rt></ruby> ${endlessProblemIndex} <ruby>問<rt>もん</rt></ruby>`;
+
+    // 段階的に少しずつ難易度（お会計金額）を上げる
+    let basePrice;
+    if (endlessProblemIndex <= 3) {
+      basePrice = Math.floor(Math.random() * 700) + 120;
+    } else if (endlessProblemIndex <= 7) {
+      basePrice = Math.floor(Math.random() * 1900) + 450;
+    } else {
+      basePrice = Math.floor(Math.random() * 4000) + 800;
+    }
+
+    // リアルな端数を付加
+    const ends = [0, 3, 5, 8, 9, 2, 4];
+    const endDigit = ends[Math.floor(Math.random() * ends.length)];
+    endlessCurrentTargetPrice = Math.floor(basePrice / 10) * 10 + endDigit;
+
+    // お財布生成：必ずターゲット金額より多く持たせ、端数コインも豊富にする
+    endlessWallet = {};
+    endlessTray = {};
+    DENOMINATIONS.forEach(d => {
+      endlessTray[d] = 0;
+      let count = 0;
+      if (d === 10000) count = (endlessCurrentTargetPrice >= 8000 || Math.random() < 0.2) ? 1 : 0;
+      else if (d === 5000) count = (endlessCurrentTargetPrice >= 4000 || Math.random() < 0.4) ? 1 : 0;
+      else if (d === 1000) count = Math.floor(Math.random() * 4) + 1;
+      else if (d === 500)  count = Math.floor(Math.random() * 3) + 1;
+      else if (d === 100)  count = Math.floor(Math.random() * 5) + 1;
+      else if (d === 50)   count = Math.floor(Math.random() * 3) + 1;
+      else if (d === 10)   count = Math.floor(Math.random() * 6) + 2;
+      else if (d === 5)    count = Math.floor(Math.random() * 3) + 1;
+      else if (d === 1)    count = Math.floor(Math.random() * 6) + 3;
+      endlessWallet[d] = count;
+    });
+
+    // もし所持金が足りなければ千円札を足す
+    while (getWalletTotal(endlessWallet) < endlessCurrentTargetPrice + 500) {
+      endlessWallet[1000] = (endlessWallet[1000] || 0) + 1;
+    }
+
+    endlessInitialWallet = { ...endlessWallet };
+
+    document.getElementById("endlessTotalPrice").textContent = endlessCurrentTargetPrice.toLocaleString();
+    renderEndlessCheckout();
+  }
+
+  // エンドレス盤面描画
+  function renderEndlessCheckout() {
+    const total = endlessCurrentTargetPrice;
+    const payAmount = DENOMINATIONS.reduce((sum, d) => sum + d * endlessTray[d], 0);
+    const diff = total - payAmount;
+
+    document.getElementById("endlessPayAmount").innerHTML = `${payAmount.toLocaleString()}<span style="font-size:0.9rem;"><ruby>円<rt>えん</rt></ruby></span>`;
+
+    const diffLabel = document.getElementById("endlessDiffLabel");
+    const diffVal = document.getElementById("endlessDiffVal");
+
+    if (diff > 0) {
+      diffLabel.innerHTML = `<ruby>不足<rt>ふそく</rt></ruby>`;
+      diffVal.className = "reg-val diff";
+      diffVal.innerHTML = `${diff.toLocaleString()}<span style="font-size:0.9rem;"><ruby>円<rt>えん</rt></ruby></span>`;
+      document.getElementById("btnSubmitEndlessPayment").style.opacity = "0.6";
+    } else {
+      diffLabel.innerHTML = `お<ruby>釣<rt>つ</rt></ruby>り`;
+      diffVal.className = "reg-val pay";
+      diffVal.innerHTML = `${Math.abs(diff).toLocaleString()}<span style="font-size:0.9rem;"><ruby>円<rt>えん</rt></ruby></span>`;
+      document.getElementById("btnSubmitEndlessPayment").style.opacity = "1";
+    }
+
+    // トレー描画
+    const trayContainer = document.getElementById("endlessTrayContainer");
+    trayContainer.innerHTML = "";
+    let hasTray = false;
+    DENOMINATIONS.forEach(d => {
+      if (endlessTray[d] > 0) {
+        hasTray = true;
+        const chip = document.createElement("div");
+        chip.className = "tray-chip";
+        chip.style.padding = "3px 8px";
+        chip.style.fontSize = "0.85rem";
+        chip.title = "タップでお財布に戻す";
+        const visualLabel = d >= 1000
+          ? (d === 10000 ? '1<ruby>万円<rt>まんえん</rt></ruby>' : (d / 1000) + '<ruby>千円<rt>せんえん</rt></ruby>')
+          : d + '<ruby>円<rt>えん</rt></ruby>';
+        chip.innerHTML = `
+          <div class="visual-money ${getMoneyClass(d)}" style="transform:scale(0.7);">${visualLabel}</div>
+          <span>× ${endlessTray[d]}<ruby>枚<rt>まい</rt></ruby></span>
+        `;
+        chip.onclick = () => returnEndlessCoin(d);
+        trayContainer.appendChild(chip);
+      }
+    });
+    if (!hasTray) {
+      trayContainer.innerHTML = `<span style="color:#80cbc4; font-size:0.85rem;">タップしてお<ruby>金<rt>かね</rt></ruby>をトレーに<ruby>出<rt>だ</rt></ruby>してください</span>`;
+    }
+
+    // お財布描画
+    const walletGrid = document.getElementById("endlessWalletGrid");
+    walletGrid.innerHTML = "";
+    DENOMINATIONS.forEach(d => {
+      const count = endlessWallet[d] || 0;
+      const card = document.createElement("div");
+      card.className = `interactive-money-card ${count === 0 ? 'empty' : ''}`;
+      card.style.padding = "6px";
+      const visualLabel = d >= 1000
+        ? (d === 10000 ? '<ruby>一万円<rt>いちまんえん</rt></ruby>' : (d / 1000) + '<ruby>千円<rt>せんえん</rt></ruby>')
+        : d + '<ruby>円<rt>えん</rt></ruby>';
+      card.innerHTML = `
+        <div class="visual-money ${getMoneyClass(d)}" style="transform:scale(0.85); margin:2px 0;">${visualLabel}</div>
+        <div class="count-badge" style="font-size:0.8rem;">${count}<ruby>枚<rt>まい</rt></ruby></div>
+      `;
+      if (count > 0) {
+        card.onclick = () => putEndlessCoin(d);
+      }
+      walletGrid.appendChild(card);
+    });
+  }
+
+  function putEndlessCoin(denom) {
+    if (endlessWallet[denom] > 0 && !endlessIsAdvancing) {
+      endlessWallet[denom]--;
+      endlessTray[denom]++;
+      playCoinSound();
+      renderEndlessCheckout();
+    }
+  }
+
+  function returnEndlessCoin(denom) {
+    if (endlessTray[denom] > 0 && !endlessIsAdvancing) {
+      endlessTray[denom]--;
+      endlessWallet[denom]++;
+      playCoinSound();
+      renderEndlessCheckout();
+    }
+  }
+
+  function resetEndlessTray() {
+    if (endlessIsAdvancing) return;
+    DENOMINATIONS.forEach(d => {
+      endlessWallet[d] += endlessTray[d];
+      endlessTray[d] = 0;
+    });
+    renderEndlessCheckout();
+  }
+
+  // エンドレスモード支払い実行
+  function submitEndlessPayment() {
+    if (endlessIsAdvancing) return;
+
+    const total = endlessCurrentTargetPrice;
+    const userPayAmount = DENOMINATIONS.reduce((sum, d) => sum + d * endlessTray[d], 0);
+
+    if (userPayAmount < total) {
+      alert(`お金が ${total - userPayAmount}円 足りないよ！`);
+      return;
+    }
+
+    endlessIsAdvancing = true;
+
+    const change = userPayAmount - total;
+    const initialPieceCount = Object.values(endlessInitialWallet).reduce((a, b) => a + b, 0);
+    const userPaidPieces = Object.values(endlessTray).reduce((a, b) => a + b, 0);
+    const { pieces: userChangePieces } = calcChangeBreakdown(change);
+    const userFinalPieces = initialPieceCount - userPaidPieces + userChangePieces;
+
+    // 最適解計算
+    const { bestFinalPieces } = solveOptimalPayment(total, endlessInitialWallet);
+    const diff = userFinalPieces - bestFinalPieces;
+
+    // ★硬貨1枚のお釣り（500, 100, 50, 10, 5, 1）なら神払い賞！札は除外
+    const isSingleCoinChange = (userChangePieces === 1 && COIN_DENOMINATIONS.includes(change));
+    const isSmartEquivalent = isSmartEquivalentPayment(total, userPayAmount, change, userChangePieces, diff);
+
+    // 評価判定
+    const is_perfect_exact = (change === 0 && diff === 0);
+    const is_miracle_condense = (diff === 0 && isSingleCoinChange && userPaidPieces >= 3);
+    const is_secret_rank = is_perfect_exact || is_miracle_condense;
+
+    let baseScore = 0;
+    let timeBonus = 0;
+    let starsText = "";
+    let titleText = "";
+    let isComboSuccess = false;
+
+    if (is_secret_rank) {
+      baseScore = 1000;
+      timeBonus = 5;
+      starsText = "🌈★★★★👑";
+      titleText = `<ruby>伝説<rt>でんせつ</rt></ruby>の<ruby>神払<rt>かみばら</rt></ruby>いマスター！`;
+      endlessStats.secret++;
+      isComboSuccess = true;
+      playSecretSound();
+      playLovotSound('happy');
+    } else if (change === 0) {
+      baseScore = 500;
+      timeBonus = 3;
+      starsText = "★★★";
+      titleText = `ぴったり<ruby>賞<rt>しょう</rt></ruby>！`;
+      endlessStats.exactPay++;
+      isComboSuccess = true;
+      playSuccessSound();
+      playLovotSound('happy');
+    } else if (isSmartEquivalent) {
+      // ★硬貨1枚のお釣り（500円玉、100円玉など）や神払いは最高得点＆ボーナス獲得！
+      baseScore = 500;
+      timeBonus = 3;
+      starsText = "★★★";
+      titleText = `<ruby>神払<rt>かみばら</rt></ruby>い<ruby>賞<rt>しょう</rt></ruby>！`;
+      endlessStats.bestPay++;
+      isComboSuccess = true;
+      playSuccessSound();
+      playLovotSound('happy');
+    } else if (diff <= 2) {
+      baseScore = 200;
+      timeBonus = 1;
+      starsText = "★★☆";
+      titleText = "すごい！";
+      endlessStats.great++;
+      isComboSuccess = false;
+      playSuccessSound();
+    } else {
+      baseScore = 50;
+      timeBonus = 0;
+      starsText = "★☆☆";
+      titleText = "おしい！";
+      endlessStats.close++;
+      isComboSuccess = false;
+      playCoinSound();
+    }
+
+    endlessTotalSolved++;
+    recordPaymentAndCheckTitle(change === 0, is_secret_rank);
+
+    // コンボ更新
+    if (isComboSuccess) {
+      endlessCombo++;
+      if (endlessCombo > endlessMaxCombo) endlessMaxCombo = endlessCombo;
+    } else {
+      endlessCombo = 0;
+    }
+
+    // スコア加算（コンボ倍率適用）
+    const mult = getComboMultiplier(endlessCombo);
+    const earnedScore = Math.round(baseScore * mult);
+    endlessScore += earnedScore;
+
+    // タイム加算
+    if (timeBonus > 0) {
+      endlessTimeRemaining += timeBonus;
+      setTimeout(playTimeBonusSound, 250);
+    }
+
+    updateEndlessStatsUI();
+
+    // ポップアップ表示
+    showEndlessPopup(starsText, titleText, earnedScore, timeBonus, endlessCombo);
+
+    // 0.85秒後に次の問題へ
+    endlessPopupTimer = setTimeout(() => {
+      skipEndlessPopup();
+    }, 850);
+  }
+
+  // ポップアップ表示
+  function showEndlessPopup(stars, title, score, timeBonus, combo) {
+    const popup = document.getElementById("endlessPopup");
+    const pStars = document.getElementById("endlessPopupStars");
+    const pTitle = document.getElementById("endlessPopupTitle");
+    const pScore = document.getElementById("endlessPopupScore");
+    const pTime = document.getElementById("endlessPopupTime");
+
+    if (pStars) pStars.innerHTML = stars;
+    if (pTitle) pTitle.innerHTML = title;
+    if (pScore) pScore.innerHTML = `+${score.toLocaleString()} <ruby>点<rt>てん</rt></ruby>${combo >= 2 ? ` (×${getComboMultiplier(combo).toFixed(1)})` : ''}`;
+    if (pTime) {
+      pTime.innerHTML = timeBonus > 0 ? `⏱️ +${timeBonus}<ruby>秒<rt>びょう</rt></ruby><ruby>延長<rt>えんちょう</rt></ruby>！` : '';
+      pTime.style.display = timeBonus > 0 ? 'block' : 'none';
+    }
+
+    if (popup) popup.classList.add("show");
+  }
+
+  // ポップアップ即時スキップして次の問題へ
+  function skipEndlessPopup() {
+    if (endlessPopupTimer) {
+      clearTimeout(endlessPopupTimer);
+      endlessPopupTimer = null;
+    }
+    const popup = document.getElementById("endlessPopup");
+    if (popup) popup.classList.remove("show");
+
+    if (endlessTimeRemaining > 0) {
+      generateEndlessProblem();
+    }
+  }
+
+  // タイムアップ・ゲーム終了
+  function endEndlessGame() {
+    if (endlessTimerInterval) {
+      clearInterval(endlessTimerInterval);
+      endlessTimerInterval = null;
+    }
+    if (endlessPopupTimer) {
+      clearTimeout(endlessPopupTimer);
+      endlessPopupTimer = null;
+    }
+    const popup = document.getElementById("endlessPopup");
+    if (popup) popup.classList.remove("show");
+
+    // ハイスコア判定（同時にエンドレス系の称号もチェック）
+    const prevBest = loadStats().highScore;
+    const isNewRecord = endlessScore > prevBest;
+    updateStatsAndCheckTitles(stats => {
+      if (endlessScore > (stats.highScore || 0)) stats.highScore = endlessScore;
+      stats.totalScore = (stats.totalScore || 0) + endlessScore;
+    });
+    const bestScore = Math.max(prevBest, endlessScore);
+
+    document.getElementById("endlessFinalScore").textContent = endlessScore.toLocaleString();
+    document.getElementById("endlessBestScoreLabel").textContent = bestScore.toLocaleString();
+    document.getElementById("endlessStatTotalSolved").innerHTML = `${endlessTotalSolved}<ruby>問<rt>もん</rt></ruby>`;
+    document.getElementById("endlessStatBestPay").innerHTML = `${endlessStats.bestPay}<ruby>回<rt>かい</rt></ruby>`;
+    document.getElementById("endlessStatExactPay").innerHTML = `${endlessStats.exactPay}<ruby>回<rt>かい</rt></ruby>`;
+    document.getElementById("endlessStatMaxCombo").innerHTML = `${endlessMaxCombo}<ruby>連続<rt>れんぞく</rt></ruby>`;
+
+    const banner = document.getElementById("endlessNewRecordBanner");
+    if (isNewRecord && endlessScore > 0) {
+      banner.style.display = "inline-block";
+      playNewRecordSound();
+      speakLovot("わぁぁ！新記録（しんきろく）達成（たっせい）だよぉ！！すご〜い！大天才（だいてんさい）！！🏆✨", 5000, 'surprise');
+    } else {
+      banner.style.display = "none";
+      playTimeUpSound();
+      speakLovot("タイムアップ！おつかれさま〜！いっぱいいいお支払（しはら）いができたねっ！えへへ♪", 4500, 'happy');
+    }
+
+    const secretNotice = document.getElementById("endlessSecretAwardNotice");
+    if (endlessStats.secret > 0) {
+      secretNotice.style.display = "block";
+      document.getElementById("endlessStatSecretCount").textContent = endlessStats.secret;
+    } else {
+      secretNotice.style.display = "none";
+    }
+
+    updateStartScreenHighScore();
+    showScreen("screenEndlessResult");
+  }
+
+  // 途中終了
+  function exitEndlessGame() {
+    if (confirm("エンドレスモードをやめてスタート画面に戻りますか？")) {
+      if (endlessTimerInterval) {
+        clearInterval(endlessTimerInterval);
+        endlessTimerInterval = null;
+      }
+      updateStartScreenHighScore();
+      showScreen("screenStart");
+    }
+  }
+
+  // 初期化時にハイスコア表示
+  updateStartScreenHighScore();
+
+  // ====================================================
+  // 称号（アチーブメント）システム
+  // ====================================================
+
+  const STATS_KEY = "shopping_sim_stats_v2";
+
+  function loadStats() {
+    try {
+      const raw = localStorage.getItem(STATS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          totalPayments: parsed.totalPayments || 0,
+          exactCount: parsed.exactCount || 0,
+          secretCount: parsed.secretCount || 0,
+          highScore: parsed.highScore || 0,
+          totalScore: parsed.totalScore || 0
+        };
+      }
+    } catch(e) {}
+    return { totalPayments: 0, exactCount: 0, secretCount: 0, highScore: 0, totalScore: 0 };
+  }
+
+  function saveStatsObj(stats) {
+    try { localStorage.setItem(STATS_KEY, JSON.stringify(stats)); } catch(e) {}
+  }
+
+  // 称号一覧（全19種類：カテゴリ別＆難易度順、ルビ対応）
+  const TITLES_CONFIG = [
+    // ----------------------------------------------------
+    // 【1. お買い物回数（メインランク）】
+    // ----------------------------------------------------
+    { id: "trainee", req: 0, icon: "🔰", name: "お買(か)い物(もの)みならい",
+      condition: "ゲームをはじめる",
+      desc: "お買(か)い物(もの)の世界(せかい)へようこそ！まずは1回(かい)お買(か)い物(もの)をしてみよう！",
+      category: "tier", statKey: "totalPayments", unit: "times" },
+    { id: "debut", req: 1, icon: "🥉", name: "お買(か)い物(もの)デビュー！",
+      condition: "通算(つうさん) 1回(かい) お買(か)い物(もの)を完了(かんりょう)する",
+      desc: "【1回(かい)達成(たっせい)】 初(はじ)めてお買(か)い物(もの)を完了(かんりょう)した立派(りっぱ)な第一歩(だいいっぽ)！",
+      category: "tier", statKey: "totalPayments", unit: "times" },
+    { id: "master", req: 10, icon: "🥈", name: "お買(か)い物(もの)の達人(たつじん)",
+      condition: "通算(つうさん) 10回(かい) お買(か)い物(もの)を完了(かんりょう)する",
+      desc: "【10回(かい)達成(たっせい)】 レジのお会計(かいけい)のコツを掴(つか)んできたスゴ腕(うで)！",
+      category: "tier", statKey: "totalPayments", unit: "times" },
+    { id: "god_pay", req: 50, icon: "🥇", name: "スッキリ神払(かみばら)い名人(めいじん)",
+      condition: "通算(つうさん) 50回(かい) お買(か)い物(もの)を完了(かんりょう)する",
+      desc: "【50回(かい)達成(たっせい)】 お財布(さいふ)の小銭(こぜに)を最小化(さいしょうか)するお会計(かいけい)のプロフェッショナル！",
+      category: "tier", statKey: "totalPayments", unit: "times" },
+    { id: "legend_king", req: 100, icon: "👑", name: "伝説(でんせつ)の買(か)い回(まわ)り王(おう)",
+      condition: "通算(つうさん) 100回(かい) お買(か)い物(もの)を完了(かんりょう)する",
+      desc: "【100回(かい)達成(たっせい)】 100回(かい)のお買(か)い物(もの)を極(きわ)めた、まさにレジの生(い)ける伝説(でんせつ)！！",
+      category: "tier", statKey: "totalPayments", unit: "times" },
+
+    // ----------------------------------------------------
+    // 【2. ぴったり払いチャレンジ】
+    // ----------------------------------------------------
+    { id: "pittari5", req: 5, icon: "🎯", name: "ぴったり名人(めいじん)",
+      condition: "通算(つうさん) 5回(かい) ぴったり（お釣(つ)り0円(えん)）で支払(しはら)う",
+      desc: "【5回(かい)達成(たっせい)】 お釣(つ)りゼロのピッタリ払(はら)いを何度(なんど)も決(き)めた計算(けいさん)の達人(たつじん)！",
+      category: "achievement", statKey: "exactCount", unit: "times" },
+    { id: "pittari20", req: 20, icon: "💎", name: "ジャスト・マスター",
+      condition: "通算(つうさん) 20回(かい) ぴったり（お釣(つ)り0円(えん)）で支払(しはら)う",
+      desc: "【20回(かい)達成(たっせい)】 ぴったり払(はら)いを極(きわ)めた、まさにジャストのマスター！",
+      category: "achievement", statKey: "exactCount", unit: "times" },
+    { id: "pittari50", req: 50, icon: "🔥", name: "神業(かみわざ)ジャスト",
+      condition: "通算(つうさん) 50回(かい) ぴったり（お釣(つ)り0円(えん)）で支払(しはら)う",
+      desc: "【50回(かい)達成(たっせい)】 狂(くる)いなき計算(けいさん)でぴったり払(はら)いを連発(れんぱつ)する神業(かみわざ)！",
+      category: "achievement", statKey: "exactCount", unit: "times" },
+    { id: "pittari100", req: 100, icon: "🤯", name: "究極(きゅうきょく)ジャストゴッド",
+      condition: "通算(つうさん) 100回(かい) ぴったり（お釣(つ)り0円(えん)）で支払(しはら)う",
+      desc: "【100回(かい)達成(たっせい)】 100回(かい)のぴったりを達成(たっせい)した、もはや神(かみ)の領域(りょういき)！",
+      category: "achievement", statKey: "exactCount", unit: "times" },
+
+    // ----------------------------------------------------
+    // 【3. シークレット神払い】
+    // ----------------------------------------------------
+    { id: "secret1", req: 1, icon: "🌈", name: "奇跡(きせき)の魔術師(まじゅつし)",
+      condition: "隠(かく)しランク【伝説(でんせつ)の超(ちょう)・神払(かみばら)いマスター】を 1回(かい) 達成(たっせい)する",
+      desc: "【1回(かい)達成(たっせい)】 誰(だれ)もが驚(おどろ)く奇跡(きせき)の神技(かみわざ)を成(な)し遂(と)げた伝説(でんせつ)の魔術師(まじゅつし)！",
+      category: "achievement", statKey: "secretCount", unit: "times" },
+    { id: "secret5", req: 5, icon: "🌌", name: "奇跡(きせき)の伝道師(でんどうし)",
+      condition: "隠(かく)しランク【伝説(でんせつ)の超(ちょう)・神払(かみばら)いマスター】を 5回(かい) 達成(たっせい)する",
+      desc: "【5回(かい)達成(たっせい)】 偶然(ぐうぜん)ではない奇跡(きせき)の神技(かみわざ)を完全(かんぜん)にマスターした証明(しょうめい)！",
+      category: "achievement", statKey: "secretCount", unit: "times" },
+    { id: "secret10", req: 10, icon: "♾️", name: "シークレット・ロード",
+      condition: "隠(かく)しランク【伝説(でんせつ)の超(ちょう)・神払(かみばら)いマスター】を 10回(かい) 達成(たっせい)する",
+      desc: "【10回(かい)達成(たっせい)】 シークレットを極(きわ)めし者(もの)のみが辿(たど)り着(つ)く絶対領域(ぜったいりょういき)！",
+      category: "achievement", statKey: "secretCount", unit: "times" },
+
+    // ----------------------------------------------------
+    // 【4. エンドレス：1回でのハイスコア（実力系）】
+    // ----------------------------------------------------
+    { id: "speed5000", req: 5000, icon: "🔥", name: "スピードスター",
+      condition: "1回(かい)のプレイで 5,000点(てん) 以上(いじょう)を獲得(かくとく)する",
+      desc: "【5,000点(てん)達成(たっせい)】 素早(すばや)い判断(はんだん)でお会計(かいけい)を次々(つぎつぎ)こなすスピードスター！",
+      category: "achievement", statKey: "highScore", unit: "score" },
+    { id: "speed10000", req: 10000, icon: "⚡", name: "電光石火(でんこうせっか)の覇者(はしゃ)",
+      condition: "1回(かい)のプレイで 10,000点(てん) 以上(いじょう)を獲得(かくとく)する",
+      desc: "【10,000点(てん)達成(たっせい)】 電光石火(でんこうせっか)の速(はや)さでお会計(かいけい)を制(せい)した覇者(はしゃ)！",
+      category: "achievement", statKey: "highScore", unit: "score" },
+    { id: "speed20000", req: 20000, icon: "☄️", name: "音速(おんそく)の覇者(はしゃ)",
+      condition: "1回(かい)のプレイで 20,000点(てん) 以上(いじょう)を獲得(かくとく)する",
+      desc: "【20,000点(てん)達成(たっせい)】 音速(おんそく)を超(こ)えるスピードでお会計(かいけい)を制覇(せいは)した最強(さいきょう)の証(あかし)！",
+      category: "achievement", statKey: "highScore", unit: "score" },
+    { id: "speed30000", req: 30000, icon: "🌠", name: "光速(こうそく)のレジマスター",
+      condition: "1回(かい)のプレイで 30,000点(てん) 以上(いじょう)を獲得(かくとく)する",
+      desc: "【30,000点(てん)達成(たっせい)】 神払(かみばら)い連発(れんぱつ)＆ノーミスで駆(か)け抜(ぬ)ける完全無欠(かんぜんむけつ)のプレイ！",
+      category: "achievement", statKey: "highScore", unit: "score" },
+
+    // ----------------------------------------------------
+    // 【5. エンドレス：通算累積スコア（やり込み系）】
+    // ----------------------------------------------------
+    { id: "total_score_100k", req: 100000, icon: "✨", name: "スコアコレクター",
+      condition: "エンドレス通算(つうさん) 100,000点(てん) を達成(たっせい)する",
+      desc: "【通算(つうさん)10万点(まんてん)達成(たっせい)】 コツコツ積(つ)み重(かさ)ねた努力(どりょく)の第一歩(だいいっぽ)！",
+      category: "achievement", statKey: "totalScore", unit: "score" },
+    { id: "total_score_500k", req: 500000, icon: "🌟", name: "スコアスター",
+      condition: "エンドレス通算(つうさん) 500,000点(てん) を達成(たっせい)する",
+      desc: "【通算(つうさん)50万点(まんてん)達成(たっせい)】 幾多(いくた)のお会計(かいけい)をこなしてきた熟練(じゅくれん)のスコアラー！",
+      category: "achievement", statKey: "totalScore", unit: "score" },
+    { id: "total_score_1M", req: 1000000, icon: "🌌", name: "ミリオン・レジスター",
+      condition: "エンドレス通算(つうさん) 1,000,000点(てん) を達成(たっせい)する",
+      desc: "【通算(つうさん)100万点(まんてん)達成(たっせい)】 ついに100万点(まんてん)突破(とっぱ)！圧倒的(あっとうてき)なプレイ量(りょう)の証明(しょうめい)！",
+      category: "achievement", statKey: "totalScore", unit: "score" }
+  ];
+
+  function isTitleUnlocked(item, stats) {
+    return (stats[item.statKey] || 0) >= item.req;
+  }
+
+  function getAllUnlockedIds(stats) {
+    const ids = new Set();
+    TITLES_CONFIG.forEach(t => { if (isTitleUnlocked(t, stats)) ids.add(t.id); });
+    return ids;
+  }
+
+  // 通算称号（tier）は「現在の称号」として1つに絞る
+  function getUnlockedTierTitle(stats) {
+    let cur = TITLES_CONFIG[0];
+    TITLES_CONFIG.forEach(t => {
+      if (t.category === "tier" && stats.totalPayments >= t.req) cur = t;
+    });
+    return cur;
+  }
+
+  function getNextTierTitle(stats) {
+    const tiers = TITLES_CONFIG.filter(t => t.category === "tier");
+    for (const t of tiers) {
+      if (stats.totalPayments < t.req) return t;
+    }
+    return null;
+  }
+
+  function updateTitleUI() {
+    const stats = loadStats();
+    const curTitle = getUnlockedTierTitle(stats);
+    const iconEl = document.getElementById("titleBadgeIcon");
+    if (iconEl) {
+      iconEl.textContent = curTitle.icon;
+    }
+    const btn = document.getElementById("circleTitleBtn");
+    if (btn) {
+      btn.title = `現在の称号: ${curTitle.name.replace(/[（\(][^）\)]+[）\)]/g, '')}（タップで称号一覧を開く）`;
+    }
+  }
+
+  function openTitleModal() {
+    const stats = loadStats();
+    const curTitle = getUnlockedTierTitle(stats);
+    const nextTitle = getNextTierTitle(stats);
+
+    document.getElementById("modalCurrentTitle").innerHTML = `${curTitle.icon} ${parseRuby(curTitle.name)}`;
+    document.getElementById("modalTotalPayCount").textContent = stats.totalPayments.toLocaleString();
+
+    const progText = document.getElementById("modalNextTitleProgress");
+    const progBar = document.getElementById("modalProgressBar");
+
+    if (nextTitle) {
+      const remaining = nextTitle.req - stats.totalPayments;
+      progText.innerHTML = `つぎの<ruby>称号<rt>しょうごう</rt></ruby>（<ruby>通算<rt>つうさん</rt></ruby> ${nextTitle.req}<ruby>回<rt>かい</rt></ruby>）まで あと ${remaining}<ruby>回<rt>かい</rt></ruby>`;
+      const prevReq = curTitle.req;
+      const range = nextTitle.req - prevReq;
+      const current = stats.totalPayments - prevReq;
+      const pct = Math.min(100, Math.max(0, Math.round((current / range) * 100)));
+      progBar.style.width = `${pct}%`;
+    } else {
+      progText.innerHTML = `すべての<ruby>通算<rt>つうさん</rt></ruby><ruby>称号<rt>しょうごう</rt></ruby>を<ruby>制覇<rt>せいは</rt></ruby>！！👑`;
+      progBar.style.width = `100%`;
+    }
+
+    // 称号カード一覧描画（未獲得は条件のみ表示し、名前やアイコンは？で伏せる）
+    const listEl = document.getElementById("titleCardsList");
+    listEl.innerHTML = "";
+    TITLES_CONFIG.forEach(item => {
+      const unlocked = isTitleUnlocked(item, stats);
+      const card = document.createElement("div");
+      card.className = `title-item-card ${unlocked ? 'unlocked' : 'locked'}`;
+
+      if (unlocked) {
+        // 獲得済み
+        card.innerHTML = `
+          <div class="title-item-icon">${item.icon}</div>
+          <div class="title-item-info">
+            <div class="title-item-name">${parseRuby(item.name)}</div>
+            <div class="title-item-desc">${parseRuby(item.desc)}</div>
+            <div class="title-item-cond"><ruby>達成条件<rt>たっせいじょうけん</rt></ruby>: ${parseRuby(item.condition)}</div>
+          </div>
+          <div class="title-item-status unlocked">
+            <ruby>獲得<rt>かくとく</rt></ruby><ruby>済<rt>ず</rt></ruby>み ✓
+          </div>
+        `;
+      } else {
+        // 未獲得：獲得条件だけを記して、あとは？マーク！
+        const current = stats[item.statKey] || 0;
+        const remaining = item.req - current;
+        const remainingText = item.unit === "score"
+          ? `あと ${remaining.toLocaleString()}<ruby>点<rt>てん</rt></ruby>`
+          : `あと ${remaining}<ruby>回<rt>かい</rt></ruby>`;
+        card.innerHTML = `
+          <div class="title-item-icon locked-q">❓</div>
+          <div class="title-item-info">
+            <div class="title-item-name locked-name">？？？？？？</div>
+            <div class="title-item-cond-highlight">🎯 <ruby>獲得条件<rt>かくとくじょうけん</rt></ruby>: <strong>${parseRuby(item.condition)}</strong></div>
+            <div class="title-item-desc">（<ruby>条件<rt>じょうけん</rt></ruby>を<ruby>達成<rt>たっせい</rt></ruby>すると<ruby>称号名<rt>しょうごうめい</rt></ruby>が<ruby>解放<rt>かいほう</rt></ruby>されます）</div>
+          </div>
+          <div class="title-item-status locked">
+            ${remainingText}
+          </div>
+        `;
+      }
+
+      listEl.appendChild(card);
+    });
+
+    document.getElementById("titleModal").style.display = "flex";
+
+    // ここあが称号コレクションの状況を案内！
+    const totalCount = TITLES_CONFIG.length;
+    const unlockedCount = getAllUnlockedIds(stats).size;
+    speakLovot(`称号（しょうごう）コレクションだね！今（いま）は ${unlockedCount}個（こ）／全部（ぜんぶ）で ${totalCount}個（こ）解放（かいほう）できてるよぉ！いっぱい集（あつ）めようねっ！🎖️`, 4500, 'happy');
+    playLovotSound('talk');
+  }
+
+  function closeTitleModal(event) {
+    if (event && event.target !== event.currentTarget && !event.target.classList.contains("btn")) {
+      return;
+    }
+    document.getElementById("titleModal").style.display = "none";
+  }
+
+  // 統計を更新し、新たにアンロックされた称号があればトースト通知キューに入れる
+  function updateStatsAndCheckTitles(mutatorFn) {
+    const stats = loadStats();
+    const prevUnlocked = getAllUnlockedIds(stats);
+    mutatorFn(stats);
+    saveStatsObj(stats);
+    const newUnlocked = getAllUnlockedIds(stats);
+    const newlyUnlocked = TITLES_CONFIG.filter(t => !prevUnlocked.has(t.id) && newUnlocked.has(t.id));
+    if (newlyUnlocked.length > 0) {
+      queueTitleToasts(newlyUnlocked);
+    }
+    updateTitleUI();
+  }
+
+  // お支払い完了時にカウントして新称号獲得をチェック
+  function recordPaymentAndCheckTitle(isExact, isSecret) {
+    updateStatsAndCheckTitles(stats => {
+      stats.totalPayments = (stats.totalPayments || 0) + 1;
+      if (isExact) stats.exactCount = (stats.exactCount || 0) + 1;
+      if (isSecret) stats.secretCount = (stats.secretCount || 0) + 1;
+    });
+  }
+
+  // 複数の称号を同時に獲得しても順番に通知できるようキューで管理
+  let titleToastQueue = [];
+  let isProcessingToastQueue = false;
+
+  function queueTitleToasts(titles) {
+    titleToastQueue.push(...titles);
+    processTitleToastQueue();
+  }
+
+  function processTitleToastQueue() {
+    if (isProcessingToastQueue || titleToastQueue.length === 0) return;
+    isProcessingToastQueue = true;
+    const t = titleToastQueue.shift();
+    showTitleUnlockToast(t);
+    playNewRecordSound();
+    setTimeout(() => {
+      isProcessingToastQueue = false;
+      processTitleToastQueue();
+    }, 3900);
+  }
+
+  let toastTimer = null;
+  function showTitleUnlockToast(titleObj) {
+    const toast = document.getElementById("titleUnlockToast");
+    const icon = document.getElementById("toastIcon");
+    const name = document.getElementById("toastTitleName");
+
+    if (toast && icon && name) {
+      icon.textContent = titleObj.icon;
+      name.innerHTML = parseRuby(titleObj.name);
+      toast.classList.add("show");
+
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.remove("show");
+      }, 3500);
+    }
+
+    // ここあが飛び跳ねて新称号獲得を元気に報告！
+    const wrap = document.getElementById("lovotAvatarWrap");
+    if (wrap) {
+      wrap.classList.remove("bouncing");
+      void wrap.offsetWidth; // リフロー
+      wrap.classList.add("bouncing");
+    }
+    speakLovot(`わぁぁ！新（あたら）しい称号（しょうごう）『${titleObj.name}』を解放（かいほう）したよぉ！！すご〜い！おめでとう！！🎖️✨`, 5000, 'surprise');
+    playLovotSound('happy');
+  }
+
+  // 初期化時に称号表示とモードバッジ更新
+  updateTitleUI();
+  updatePlayModeBadges();
+
+  // 起動時にここあが元気に挨拶
+  setTimeout(() => {
+    speakLovot("きゅ〜ん♪ ここあだよ！今日（きょう）もお買（か）い物（もの）をいっぱい応援（おうえん）するねっ！タッチしてみてね！", 5000, 'happy');
+  }, 1200);
+</script>
+
+</body>
+</html>
